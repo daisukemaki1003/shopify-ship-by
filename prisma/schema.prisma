@@ -30,3 +30,77 @@ model Session {
   collaborator  Boolean?  @default(false)
   emailVerified Boolean?  @default(false)
 }
+
+enum RuleTargetType {
+  product
+  all_products
+  shipping_method
+}
+
+enum DeliverySource {
+  metafield
+  attributes
+}
+
+model Rule {
+  id          String         @id @default(cuid())
+  shopId      String
+  targetType  RuleTargetType
+  targetId    String?
+  prefectures Json
+  days        Int
+  enabled     Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([shopId])
+}
+
+model Holiday {
+  shopId         String   @id
+  holidays       Json     @default(json("[]"))
+  weeklyHolidays Json     @default(json("[]"))
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ErrorLog {
+  id        String   @id @default(cuid())
+  shopId    String
+  orderId   BigInt
+  reason    String
+  rawData   Json?
+  memo      String?
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shopId])
+  @@index([shopId, orderId])
+}
+
+model ShopSetting {
+  shopId                 String          @id
+  deliverySource         DeliverySource?
+  deliveryKey            String?
+  deliveryFormat         String?
+  saveTag                Boolean         @default(false)
+  saveTagFormat          String?
+  saveNote               Boolean         @default(false)
+  saveNoteFormat         String?
+  saveMetafield          Boolean         @default(true)
+  shippingMethodSettings Json?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+}
+
+model Shop {
+  id          String   @id
+  shopDomain  String?  @unique
+  accessToken String?
+  scope       String?
+  installedAt DateTime?
+  uninstalledAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

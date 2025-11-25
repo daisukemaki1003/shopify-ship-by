@@ -26,7 +26,7 @@
 > 各Phaseの「完了条件」を満たしたらチェックを入れる。
 
 - [x] Phase 0 完了（Remix + Shopify + SQLite ローカルが動く）
-- [ ] Phase 1 完了（Prisma schema / migrate / seed 完了）
+- [x] Phase 1 完了（Prisma schema / migrate / seed 完了）
 - [ ] Phase 2 完了（OAuth / shopごとの token 保存 / admin API 呼べる）
 - [ ] Phase 3 完了（Shipping Rates 同期 + ON/OFF 管理できる）
 - [ ] Phase 4 完了（計算コア：日付取得→ルール適用→休業日考慮まで単体テスト）
@@ -74,7 +74,7 @@
 
 ### タスク
 
-- [ ] 1-1. Prisma schema 作成  
+- [x] 1-1. Prisma schema 作成  
        **モデル**
   - Rule
   - Holiday
@@ -83,12 +83,12 @@
   - Shop（セッション/OAuth用）  
     **完了条件**: schema.prisma に定義完了
 
-- [ ] 1-2. migrate dev  
+- [x] 1-2. migrate dev  
        **やること**
   - `npx prisma migrate dev --name init`  
     **完了条件**: DBにテーブル作成される
 
-- [ ] 1-3. 最低限 seed（開発用）  
+- [x] 1-3. 最低限 seed（開発用）  
        **やること**
   - Rule/Setting のダミー投入  
     **完了条件**: UIで一覧が最低1件見える
