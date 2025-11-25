@@ -40,6 +40,12 @@ Press P to open the URL to your app. Once you click install, you can start devel
 
 Local development is powered by [the Shopify CLI](https://shopify.dev/docs/apps/tools/cli). It logs into your partners account, connects to an app, provides environment variables, updates remote config, creates a tunnel and provides commands to generate extensions.
 
+### Local DB (SQLite + Prisma)
+
+1. Run `npm run setup` to execute `prisma generate` and apply the existing migration (creates `prisma/dev.sqlite`).
+2. Start the app: `npm run dev` (or `shopify app dev`).
+3. Inspect data if needed: `npx prisma studio`.
+
 ### Authenticating and querying data
 
 To authenticate and query data you can use the `shopify` const that is exported from `/app/shopify.server.js`:

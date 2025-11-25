@@ -25,7 +25,7 @@
 
 > 各Phaseの「完了条件」を満たしたらチェックを入れる。
 
-- [ ] Phase 0 完了（Remix + Shopify + Postgres ローカルが動く）
+- [x] Phase 0 完了（Remix + Shopify + SQLite ローカルが動く）
 - [ ] Phase 1 完了（Prisma schema / migrate / seed 完了）
 - [ ] Phase 2 完了（OAuth / shopごとの token 保存 / admin API 呼べる）
 - [ ] Phase 3 完了（Shipping Rates 同期 + ON/OFF 管理できる）
@@ -42,27 +42,27 @@
 ### ゴール
 
 - Remix + Shopify App template ベースで起動
-- ローカル Postgres（Docker）と Prisma が繋がる
+- ローカル SQLite（ファイル）と Prisma が繋がる
 
 ### タスク
 
-- [ ] 0-1. Remix + Shopify app テンプレ準備  
+- [x] 0-1. Remix + Shopify app テンプレ準備  
        **やること**
   - Shopify公式のRemixテンプレから新規作成
   - Polaris / AppBridge / OAuth が含まれる構成にする  
     **完了条件**: `shopify app dev` で埋め込み管理画面が表示される
 
-- [ ] 0-2. ローカル Postgres（Docker compose）追加  
+- [x] 0-2. ローカル SQLite（ファイル）利用  
        **やること**
-  - `docker-compose.yml` で postgres:15 を起動
-  - `DATABASE_URL=postgres://shipby:shipby_password@localhost:5432/ship_by_dev`  
-    **完了条件**: DBが起動し psql 等で接続できる
+  - `prisma/schema.prisma` の datasource を `provider = "sqlite"` / `url = "file:dev.sqlite"` にする
+  - `npm run setup` で `prisma generate` + `prisma migrate deploy` を実行  
+    **完了条件**: `prisma/dev.sqlite` が生成され、`npx prisma studio` が起動できる
 
-- [ ] 0-3. Prisma 導入  
+- [x] 0-3. Prisma 導入  
        **やること**
   - `prisma init`
-  - provider を `postgresql` に設定  
-    **完了条件**: `npx prisma studio` が起動できる
+  - Session モデルの migration を適用できる状態にする  
+    **完了条件**: Session テーブルが schema.prisma に定義されている
 
 ---
 
