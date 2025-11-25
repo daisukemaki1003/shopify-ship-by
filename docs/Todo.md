@@ -338,8 +338,8 @@
   - WEBHOOK_SECRET など
     **完了条件**: READMEに記載
 
-- [ ] 8-2. 本番DB（Postgres）接続確認
-  - Neon/Supabase/Railway などに接続
+- [ ] 8-2. 本番DB接続確認（SQLite 運用前チェック）
+  - SQLite ファイルの配置/権限を確認し `prisma migrate deploy` を実行
     **完了条件**: migrate deploy が成功
 
 - [ ] 8-3. Webhook 再試行/冪等性テスト

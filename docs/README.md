@@ -356,9 +356,7 @@ Shopify における配送管理を補助するアプリであり、
 
 ## **9.3 DB**
 
-- Supabase（PostgreSQL）
-- PlanetScale（MySQL）
-- Prisma コンパチ
+- SQLite（Prisma datasource `file:dev.sqlite`）をデフォルトで使用
 
 ## **9.4 マルチテナント方式**
 

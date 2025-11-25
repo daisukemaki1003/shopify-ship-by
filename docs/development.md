@@ -16,7 +16,7 @@ Order Metafield / タグ / メモへ保存するアプリ。
 - Shopify Admin API
 - Shopify Webhooks
 - Polaris（管理 UI）
-- DB：PostgreSQL or MySQL（Prisma 想定）
+- DB：SQLite（開発・本番ともデフォルト構成を使用）
 
 **マルチテナント：**
 
