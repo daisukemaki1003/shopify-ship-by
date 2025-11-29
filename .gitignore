@@ -25,3 +25,4 @@ database.sqlite
 .cursor/
 .gemini/
 .serena/ 
+.tmp-tests/

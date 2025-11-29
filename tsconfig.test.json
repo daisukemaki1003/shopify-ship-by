@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": ".tmp-tests",
+    "types": ["@react-router/node", "vite/client", "@shopify/polaris-types", "node"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": ["app/services/ship-by.server.ts", "app/services/ship-by.test.ts"]
+}

@@ -29,8 +29,8 @@
 - [x] Phase 1 完了（Prisma schema / migrate / seed 完了）
 - [x] Phase 2 完了（OAuth / shopごとの token 保存 / admin API 呼べる）
 - [x] Phase 3 完了（Shipping Rates 同期 + ON/OFF 管理できる）
-- [ ] Phase 4 完了（計算コア：日付取得→ルール適用→休業日考慮まで単体テスト）
-- [ ] Phase 5 完了（orders/create で自動計算→保存→エラー記録）
+- [x] Phase 4 完了（計算コア：日付取得→ルール適用→休業日考慮まで単体テスト）
+- [x] Phase 5 完了（orders/create で自動計算→保存→エラー記録）
 - [ ] Phase 6 完了（出荷ルール/休業日/設定/ダッシュボード UI）
 - [ ] Phase 7 完了（エラー一覧 UI + 再計算ボタン）
 - [ ] Phase 8 完了（本番Env/監査/アプリ提出準備）
@@ -165,7 +165,7 @@
 
 ### タスク
 
-- [ ] 4-1. お届け希望日取得/パース
+- [x] 4-1. お届け希望日取得/パース
       **入力**: order + setting
       **設定**
   - delivery_source: metafield or attributes（どちらか一方）
@@ -173,14 +173,14 @@
   - delivery_format: 管理者入力（シンプル区切り）
     **完了条件**: 日付パース成功/失敗が返る
 
-- [ ] 4-2. 配送方法判定（3方式対応）
+- [x] 4-2. 配送方法判定（3方式対応）
       **優先順**
   1. Shipping Line code
   2. Order metafield（設定あり）
   3. Order attributes（設定あり）
      **完了条件**: shipping_method_key が確定する
 
-- [ ] 4-3. ルール抽出
+- [x] 4-3. ルール抽出
       **条件**
   - product / all_products / shipping_method
   - 都道府県（複数）一致
@@ -189,17 +189,17 @@
     **競合**: 最大 days を採用
     **完了条件**: adopt_days を返す
 
-- [ ] 4-4. ship-by 基本計算
+- [x] 4-4. ship-by 基本計算
       `ship_by = delivery_date - adopt_days`
       **完了条件**: date が出力される
 
-- [ ] 4-5. 休業日考慮（前営業日へ前倒し）
+- [x] 4-5. 休業日考慮（前営業日へ前倒し）
       **ルール**
   - holidays（単発）または weekly_holidays に該当したら
     直前の営業日まで -1 day で繰り返す
     **完了条件**: 営業日に着地した ship_by が返る
 
-- [ ] 4-6. 単体テスト
+- [x] 4-6. 単体テスト
       **ケース**
   - ルール競合（最大days）
   - 連続休業日
@@ -217,26 +217,26 @@
 
 ### タスク
 
-- [ ] 5-1. Webhook 受信（orders/create）
+- [x] 5-1. Webhook 受信（orders/create）
       **やること**
   - HMAC検証
   - 重複受信対策（idempotent）
     **完了条件**: 受信して200返せる
 
-- [ ] 5-2. orders/create ハンドラ
+- [x] 5-2. orders/create ハンドラ
       **やること**
   - Phase4 の計算コア呼び出し
   - ship_by の算出
     **完了条件**: ship_by が得られる
 
-- [ ] 5-3. 保存ロジック
+- [x] 5-3. 保存ロジック
       **保存先（設定ON/OFF）**
   - Order Metafield（ship_by.deadline, date型）
   - タグ（format: ship-by-{YYYY}-{MM}-{dd}）
   - メモ（format: 出荷期限：{YYYY}-{MM}-{dd}）
     **完了条件**: Shopify側に反映される
 
-- [ ] 5-4. エラー時の記録
+- [x] 5-4. エラー時の記録
       **やること**
   - ErrorLog に reason/raw_data を保存
   - 通知はしない
@@ -252,7 +252,7 @@
 
 ### タスク
 
-- [ ] 6-1. ルール一覧 UI
+- [x] 6-1. ルール一覧 UI
       **項目**
   - 出荷日数
   - 対象（商品/全商品/配送方法）
@@ -262,7 +262,7 @@
     **アクション**: 編集/複製/削除
     **完了条件**: CRUDできる
 
-- [ ] 6-2. ルール追加/編集 UI
+- [x] 6-2. ルール追加/編集 UI
       **フロー**
   1. 都道府県を複数選択（47チェック）
   2. 対象選択（商品検索 or 全商品 or 配送方法）

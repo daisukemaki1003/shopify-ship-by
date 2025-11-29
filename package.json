@@ -18,7 +18,9 @@
     "seed": "prisma db seed",
     "graphql-codegen": "graphql-codegen",
     "vite": "vite",
-    "typecheck": "SKIP_TYPEGEN=1 react-router typegen && tsc --noEmit"
+    "typecheck": "SKIP_TYPEGEN=1 react-router typegen && tsc --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test .tmp-tests/ship-by.test.js",
+    "test:clean": "rm -rf .tmp-tests"
   },
   "type": "module",
   "engines": {
