@@ -27,8 +27,8 @@
 
 - [x] Phase 0 完了（Remix + Shopify + SQLite ローカルが動く）
 - [x] Phase 1 完了（Prisma schema / migrate / seed 完了）
-- [ ] Phase 2 完了（OAuth / shopごとの token 保存 / admin API 呼べる）
-- [ ] Phase 3 完了（Shipping Rates 同期 + ON/OFF 管理できる）
+- [x] Phase 2 完了（OAuth / shopごとの token 保存 / admin API 呼べる）
+- [x] Phase 3 完了（Shipping Rates 同期 + ON/OFF 管理できる）
 - [ ] Phase 4 完了（計算コア：日付取得→ルール適用→休業日考慮まで単体テスト）
 - [ ] Phase 5 完了（orders/create で自動計算→保存→エラー記録）
 - [ ] Phase 6 完了（出荷ルール/休業日/設定/ダッシュボード UI）
@@ -103,18 +103,18 @@
 
 ### タスク
 
-- [ ] 2-1. OAuth フロー確認 & Shop 情報保存  
+- [x] 2-1. OAuth フロー確認 & Shop 情報保存  
        **やること**
   - インストール時に shop_id / access_token を DBへ保存  
     **完了条件**: 再ログインで token 再利用できる
 
-- [ ] 2-2. Admin API クライアント共通化  
+- [x] 2-2. Admin API クライアント共通化  
        **やること**
   - `adminClient(shop_id)` 的なヘルパーを用意
   - 401/429 リトライやログ整備  
     **完了条件**: 任意の注文/商品APIを取得できる
 
-- [ ] 2-3. Scope 反映  
+- [x] 2-3. Scope 反映  
        **必須スコープ（広め）**
   - read_orders / write_orders
   - read_order_metafields / write_order_metafields
@@ -132,13 +132,13 @@
 
 ### タスク
 
-- [ ] 3-1. Shipping Zones/Rates 取得サービス作成  
+- [x] 3-1. Shipping Zones/Rates 取得サービス作成  
        **やること**
   - Admin API `shipping_zones.json` を読んで  
      `code/title/price` を抽出  
     **完了条件**: 同期用関数が動作
 
-- [ ] 3-2. ShopSetting.shipping_method_settings に保存  
+- [x] 3-2. ShopSetting.shipping_method_settings に保存  
        **形式例**
   ```json
   {
@@ -149,7 +149,7 @@
 
 **完了条件**: DBに保存・更新できる
 
-- [ ] 3-3. 設定UIで同期 & ON/OFF
+- [x] 3-3. 設定UIで同期 & ON/OFF
       **やること**
   - 「配送方法を同期」ボタン
   - 一覧表示とtoggle
