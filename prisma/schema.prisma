@@ -58,8 +58,8 @@ model Rule {
 
 model Holiday {
   shopId         String   @id
-  holidays       Json     @default(json("[]"))
-  weeklyHolidays Json     @default(json("[]"))
+  holidays       Json     @default("[]")
+  weeklyHolidays Json     @default("[]")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

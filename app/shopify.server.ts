@@ -6,16 +6,37 @@ import {
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
+import { upsertShopFromSession } from "./services/shop.server";
+
+const defaultScopes = [
+  "read_orders",
+  "write_orders",
+  "read_order_metafields",
+  "write_order_metafields",
+  "read_products",
+  "read_shipping",
+];
+
+const envScopes = process.env.SCOPES?.split(",")
+  .map((scope) => scope.trim())
+  .filter(Boolean);
+
+const scopes = envScopes?.length ? envScopes : defaultScopes;
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
   apiVersion: ApiVersion.October25,
-  scopes: process.env.SCOPES?.split(","),
+  scopes,
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
+  hooks: {
+    afterAuth: async ({ session }) => {
+      await upsertShopFromSession(session);
+    },
+  },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
