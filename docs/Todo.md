@@ -28,7 +28,7 @@
 - [x] Phase 0 完了（Remix + Shopify + SQLite ローカルが動く）
 - [x] Phase 1 完了（Prisma schema / migrate / seed 完了）
 - [x] Phase 2 完了（OAuth / shopごとの token 保存 / admin API 呼べる）
-- [ ] Phase 3 完了（Shipping Rates 同期 + ON/OFF 管理できる）
+- [x] Phase 3 完了（Shipping Rates 同期 + ON/OFF 管理できる）
 - [ ] Phase 4 完了（計算コア：日付取得→ルール適用→休業日考慮まで単体テスト）
 - [ ] Phase 5 完了（orders/create で自動計算→保存→エラー記録）
 - [ ] Phase 6 完了（出荷ルール/休業日/設定/ダッシュボード UI）
