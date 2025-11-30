@@ -61,6 +61,7 @@ CREATE TABLE "Shop" (
     "updatedAt" DATETIME NOT NULL
 );
 
+-- CreateTable
 -- CreateIndex
 CREATE INDEX "Rule_shopId_idx" ON "Rule"("shopId");
 

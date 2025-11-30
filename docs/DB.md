@@ -56,7 +56,7 @@
 | deliveryFormat | String? | 日付パースフォーマット（例: `YYYY-MM-DD`） |
 | saveTag / saveNote / saveMetafield | Boolean | タグ/メモ/メタフィールドへの保存ON/OFF |
 | saveTagFormat / saveNoteFormat | String? | 保存フォーマット（例: `ship-by-{YYYY}-{MM}-{DD}`） |
-| shippingMethodSettings | Json? | 配送方法のON/OFFマスタ。例: `{ "yamato_cool": { "title": "ヤマト クール便", "enabled": true }}` |
+| shippingMethodSettings | Json? | 配送方法のON/OFFマスタ。例: `{ "yamato_cool": { "title": "ヤマト運輸 クール便", "enabled": true }}` |
 | createdAt / updatedAt | DateTime | timestamps |
 
 インデックス: なし（PK のみ）
