@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { Form, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
+import {useEffect, useMemo, useState} from "react";
+import type {ActionFunctionArgs, LoaderFunctionArgs} from "react-router";
+import {Form, redirect, useActionData, useLoaderData, useNavigation} from "react-router";
 
 import prisma from "../db.server";
-import { authenticate } from "../shopify.server";
+import {authenticate} from "../shopify.server";
 import {
   getShippingRates,
   type ShippingRateEntry,
@@ -18,14 +17,14 @@ type ProductRule = {
 
 type LoaderData = {
   rate: ShippingRateEntry;
-  base: { id: string; days: number } | null;
+  base: {id: string; days: number} | null;
   productRules: ProductRule[];
-  flashMessage: { text: string; tone: "success" | "critical" } | null;
+  flashMessage: {text: string; tone: "success" | "critical"} | null;
 };
 
 type ActionData =
-  | { ok: true; message: string }
-  | { ok: false; message: string };
+  | {ok: true; message: string}
+  | {ok: false; message: string};
 
 const parseTargetIds = (value: string | null): string[] => {
   if (!value) return [];
@@ -43,23 +42,23 @@ const parseTargetIds = (value: string | null): string[] => {
 const serializePayload = (rateId: string, baseDays: string, baseId: string | null, productRules: ProductRule[]) => {
   return JSON.stringify({
     rateId,
-    base: { id: baseId, days: baseDays },
+    base: {id: baseId, days: baseDays},
     productRules,
   });
 };
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+export const loader = async ({request, params}: LoaderFunctionArgs) => {
+  const {session} = await authenticate.admin(request);
   const rateId = params.rateId ?? "";
   const url = new URL(request.url);
   const flashText = url.searchParams.get("message");
   const flashTone = url.searchParams.get("tone") === "critical" ? "critical" : "success";
 
-  const [rates, rules] = await Promise.all([
+  const [rates, rules, dbRate] = await Promise.all([
     getShippingRates(session.shop),
     prisma.rule.findMany({
-      where: { shopId: session.shop },
-      orderBy: { updatedAt: "desc" },
+      where: {shopId: session.shop},
+      orderBy: {updatedAt: "desc"},
       select: {
         id: true,
         targetType: true,
@@ -69,16 +68,31 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         updatedAt: true,
       },
     }),
+    prisma.shippingRate.findFirst({
+      where: {shopId: session.shop, shippingRateId: rateId},
+      select: {shippingRateId: true, handle: true, title: true, zoneName: true},
+    }),
   ]);
 
-  const rate = rates.find((r) => r.shippingRateId === rateId);
+  const rate =
+    rates.find((r) => r.shippingRateId === rateId) ??
+    (dbRate
+      ? {
+          shippingRateId: dbRate.shippingRateId,
+          handle: dbRate.handle,
+          title: dbRate.title,
+          zoneName: dbRate.zoneName,
+        }
+      : null);
   if (!rate) {
-    throw new Response("Not found", { status: 404 });
+    throw new Response("Not found", {status: 404});
   }
 
   const matchesRate = (ruleRateIds: unknown) => {
     if (Array.isArray(ruleRateIds)) {
-      return (ruleRateIds as unknown[]).map(String).includes(rateId);
+      const list = (ruleRateIds as unknown[]).map(String);
+      if (list.length === 0) return true;
+      return list.includes(rateId);
     }
     return false;
   };
@@ -97,37 +111,37 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
   return {
     rate,
-    base: baseRule ? { id: baseRule.id, days: baseRule.days } : null,
+    base: baseRule ? {id: baseRule.id, days: baseRule.days} : null,
     productRules,
-    flashMessage: flashText ? { text: flashText, tone: flashTone } : null,
+    flashMessage: flashText ? {text: flashText, tone: flashTone} : null,
   } satisfies LoaderData;
 };
 
-export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+export const action = async ({request, params}: ActionFunctionArgs) => {
+  const {session} = await authenticate.admin(request);
   const rateId = params.rateId ?? "";
   const form = await request.formData();
   const actionType = String(form.get("_action") ?? "");
 
   if (actionType !== "save_all") {
-    return { ok: false, message: "不明な操作です" } satisfies ActionData;
+    return {ok: false, message: "不明な操作です"} satisfies ActionData;
   }
 
   const rawPayload = String(form.get("payload") ?? "");
   let payload: {
     rateId: string;
-    base: { id: string | null; days: string };
+    base: {id: string | null; days: string};
     productRules: ProductRule[];
   } | null = null;
 
   try {
     payload = JSON.parse(rawPayload);
   } catch {
-    return { ok: false, message: "入力内容を解釈できませんでした" } satisfies ActionData;
+    return {ok: false, message: "入力内容を解釈できませんでした"} satisfies ActionData;
   }
 
   if (!payload || payload.rateId !== rateId) {
-    return { ok: false, message: "配送ケースが一致しません" } satisfies ActionData;
+    return {ok: false, message: "配送ケースが一致しません"} satisfies ActionData;
   }
 
   const errors: string[] = [];
@@ -146,13 +160,13 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   });
 
   if (errors.length > 0) {
-    return { ok: false, message: errors.join(" / ") } satisfies ActionData;
+    return {ok: false, message: errors.join(" / ")} satisfies ActionData;
   }
 
   // Save base rule
   if (payload.base.id) {
     await prisma.rule.updateMany({
-      where: { id: payload.base.id, shopId: session.shop },
+      where: {id: payload.base.id, shopId: session.shop},
       data: {
         targetType: "all",
         targetId: null,
@@ -181,9 +195,9 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     where: {
       shopId: session.shop,
       targetType: "product",
-      shippingRateIds: { equals: [rateId] },
+      shippingRateIds: {equals: [rateId]},
     },
-    select: { id: true },
+    select: {id: true},
   });
 
   const deleteIds = existingProductRules
@@ -192,7 +206,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   if (deleteIds.length > 0) {
     await prisma.rule.deleteMany({
-      where: { shopId: session.shop, id: { in: deleteIds } },
+      where: {shopId: session.shop, id: {in: deleteIds}},
     });
   }
 
@@ -201,7 +215,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     const targetId = JSON.stringify(rule.productIds);
     if (rule.id) {
       await prisma.rule.updateMany({
-        where: { id: rule.id, shopId: session.shop },
+        where: {id: rule.id, shopId: session.shop},
         data: {
           targetType: "product",
           targetId,
@@ -225,7 +239,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   return redirect(`/app/rules/${rateId}?message=${encodeURIComponent("保存しました")}&tone=success`);
 };
 
-function ProductPickerTags({ productIds }: { productIds: string[] }) {
+function ProductPickerTags({productIds}: {productIds: string[]}) {
   if (productIds.length === 0) {
     return <s-text tone="subdued">商品が未選択です</s-text>;
   }
@@ -240,13 +254,12 @@ function ProductPickerTags({ productIds }: { productIds: string[] }) {
   );
 }
 
-type EditableProductRule = ProductRule & { clientId: string };
+type EditableProductRule = ProductRule & {clientId: string};
 
 export default function RuleDetailPage() {
-  const { rate, base, productRules, flashMessage } = useLoaderData<LoaderData>();
+  const {rate, base, productRules, flashMessage} = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
   const navigation = useNavigation();
-  const app = useAppBridge() as any;
   const [baseDays, setBaseDays] = useState<string>(base ? String(base.days) : "1");
   const [productRows, setProductRows] = useState<EditableProductRule[]>(
     productRules.map((rule, idx) => ({
@@ -274,20 +287,27 @@ export default function RuleDetailPage() {
 
   const openProductPicker = async (index: number) => {
     try {
-      const result = await app?.resourcePicker?.({
+      const picker = (window as any)?.shopify?.resourcePicker;
+      if (typeof picker !== "function") {
+        console.error("shopify.resourcePicker is not available");
+        return;
+      }
+      const result = await picker({
         type: "product",
         multiple: true,
-        selection: productRows[index]?.productIds?.map((id) => ({ id })),
+        initialSelectionIds: productRows[index]?.productIds?.map((id) => ({id})),
       });
-      const selection = result?.selection ?? result?.data?.selection ?? [];
+      const selection = result?.selection ?? [];
       const ids = Array.from(
         new Set(
-          (selection as any[]).map((item) => item.id || item.admin_graphql_api_id).filter(Boolean),
+          (selection as any[])
+            .map((item) => item?.id || item?.admin_graphql_api_id)
+            .filter(Boolean),
         ),
       ).map(String);
       if (ids.length === 0) return;
       setProductRows((prev) =>
-        prev.map((row, idx) => (idx === index ? { ...row, productIds: ids } : row)),
+        prev.map((row, idx) => (idx === index ? {...row, productIds: ids} : row)),
       );
     } catch (error) {
       console.error("product picker failed", error);
@@ -297,7 +317,7 @@ export default function RuleDetailPage() {
   const addProductRule = () => {
     setProductRows((prev) => [
       ...prev,
-      { id: null, clientId: `new-${Date.now()}`, productIds: [], days: 1 },
+      {id: null, clientId: `new-${Date.now()}`, productIds: [], days: 1},
     ]);
   };
 
@@ -307,7 +327,7 @@ export default function RuleDetailPage() {
 
   const updateProductRule = (clientId: string, patch: Partial<EditableProductRule>) => {
     setProductRows((prev) =>
-      prev.map((row) => (row.clientId === clientId ? { ...row, ...patch } : row)),
+      prev.map((row) => (row.clientId === clientId ? {...row, ...patch} : row)),
     );
   };
 
@@ -320,15 +340,15 @@ export default function RuleDetailPage() {
         <input type="hidden" name="_action" value="save_all" />
         <input type="hidden" name="payload" value={serializedPayload} readOnly />
 
-        <s-stack direction="inline" gap="tight" alignment="center" style={{ marginBottom: "12px" }}>
+        <s-stack direction="inline" gap="tight" alignment="center">
           <s-link href="/app/rules">一覧に戻る</s-link>
-          <s-button type="submit" {...(isSubmitting ? { loading: true } : {})}>
+          <s-button type="submit" {...(isSubmitting ? {loading: true} : {})}>
             保存
           </s-button>
         </s-stack>
 
         {bannerText ? (
-          <s-text tone={bannerTone} style={{ display: "block", marginBottom: "12px" }}>
+          <s-text tone={bannerTone}>
             {bannerText}
           </s-text>
         ) : null}
@@ -344,7 +364,7 @@ export default function RuleDetailPage() {
                   min={1}
                   value={baseDays}
                   onChange={(e) => setBaseDays(e.target.value || "1")}
-                  style={{ width: "120px", marginTop: "4px" }}
+                  style={{width: "120px", marginTop: "4px"}}
                   name="baseDaysInput"
                 />
               </label>
@@ -390,7 +410,7 @@ export default function RuleDetailPage() {
                               days: Number.parseInt(e.target.value || "1", 10),
                             })
                           }
-                          style={{ width: "120px", marginTop: "4px" }}
+                          style={{width: "120px", marginTop: "4px"}}
                           name={`productDays-${row.clientId}`}
                         />
                       </label>
