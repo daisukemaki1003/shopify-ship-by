@@ -5,7 +5,6 @@ type ShippingRateLike = {
   handle?: string | null;
   title?: string | null;
   zoneName?: string | null;
-  enabled?: boolean;
 };
 
 export type ShopSettingLike = {
@@ -23,7 +22,6 @@ export type RuleLike = {
   targetId: string | null;
   shippingRateIds: unknown;
   days: number;
-  enabled: boolean;
 };
 
 export type HolidayLike = {
@@ -53,7 +51,6 @@ export type CalculationError =
   | "delivery_value_not_found"
   | "invalid_delivery_format"
   | "shipping_rate_not_found"
-  | "shipping_rate_disabled"
   | "shipping_rate_not_configured"
   | "no_rule"
   | "holiday_never_resolves";
@@ -187,7 +184,6 @@ export const parseDeliveryDate = (
 
 const buildShippingRateLookup = (shippingRates: ShippingRateLike[] | null | undefined) => {
   const all = new Map<string, ShippingRateLike>();
-  const enabled = new Map<string, ShippingRateLike>();
 
   (shippingRates ?? []).forEach((rate) => {
     if (!rate) return;
@@ -198,13 +194,10 @@ const buildShippingRateLookup = (shippingRates: ShippingRateLike[] | null | unde
 
     keys.forEach((key) => {
       all.set(key, rate);
-      if (rate.enabled !== false) {
-        enabled.set(key, rate);
-      }
     });
   });
 
-  return { all, enabled };
+  return { all };
 };
 
 export const detectShippingRate = (
@@ -238,14 +231,6 @@ export const detectShippingRate = (
     const normalized = normalizeKey(candidate);
     const canonical = lookup.all.get(normalized);
     if (canonical) {
-      if (!lookup.enabled.has(normalized)) {
-        return {
-          ok: false,
-          error: "shipping_rate_disabled",
-          message: `shipping rate ${canonical.title ?? canonical.handle ?? canonical.shippingRateId
-            } is disabled`,
-        };
-      }
       return { ok: true, value: canonical.shippingRateId };
     }
   }
@@ -317,7 +302,7 @@ export const pickAdoptedRule = (
   ];
 
   for (const tier of tiers) {
-    const candidates = rules.filter((rule) => rule.enabled && tier(rule));
+    const candidates = rules.filter((rule) => tier(rule));
     if (candidates.length === 0) continue;
 
     let adoptDays = -Infinity;

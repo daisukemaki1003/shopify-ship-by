@@ -37,14 +37,12 @@ async function main() {
           handle: "yamato_cool",
           title: "ヤマト クール便",
           zoneName: "Japan",
-          enabled: true,
         },
         {
           shippingRateId: "sr_sagawa_regular",
           handle: "sagawa_regular",
           title: "佐川 通常便",
           zoneName: "Japan",
-          enabled: false,
         },
       ],
     },
@@ -70,7 +68,6 @@ async function main() {
         targetId: null,
         shippingRateIds: ["sr_yamato_cool"],
         days: 2,
-        enabled: true,
       },
       {
         id: "rule-shipping-cool",
@@ -79,7 +76,6 @@ async function main() {
         targetId: "sample-product-id",
         shippingRateIds: ["sr_yamato_cool"],
         days: 3,
-        enabled: true,
       },
     ],
   });

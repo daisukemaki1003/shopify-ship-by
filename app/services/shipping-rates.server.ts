@@ -23,7 +23,6 @@ export type ShippingRateEntry = {
   handle: string;
   title: string;
   zoneName: string | null;
-  enabled: boolean;
 };
 
 const parseShippingRates = (value: unknown): ShippingRateEntry[] => {
@@ -39,7 +38,6 @@ const parseShippingRates = (value: unknown): ShippingRateEntry[] => {
         handle: String(obj.handle ?? shippingRateId),
         title: String(obj.title ?? obj.handle ?? shippingRateId),
         zoneName: obj.zoneName ? String(obj.zoneName) : null,
-        enabled: obj.enabled !== false,
       };
     })
     .filter((v): v is ShippingRateEntry => Boolean(v));
@@ -71,7 +69,6 @@ const normalizeRate = (
     handle: handleNormalized || id,
     title: title || handleNormalized || id,
     zoneName: zoneName?.trim() || null,
-    enabled: true,
   };
 };
 
@@ -151,13 +148,11 @@ const writeShippingRateCache = async (
           title: rate.title,
           handle: rate.handle,
           zoneName: rate.zoneName,
-          enabled: rate.enabled,
         },
         update: {
           title: rate.title,
           handle: rate.handle,
           zoneName: rate.zoneName,
-          enabled: rate.enabled,
           syncedAt: new Date(),
         },
       }),
@@ -185,7 +180,6 @@ export async function getShippingRates(shop: string): Promise<ShippingRateEntry[
       handle: r.handle,
       title: r.title,
       zoneName: r.zoneName,
-      enabled: r.enabled,
     }));
     await prisma.shopSetting.upsert({
       where: { shopId: shop },
@@ -200,33 +194,7 @@ export async function getShippingRates(shop: string): Promise<ShippingRateEntry[
 export async function syncShippingRates(shop: string) {
   const rates = await fetchShippingRates(shop);
   const existing = await prisma.shippingRate.findMany({ where: { shopId: shop } });
-  const existingMap = new Map(
-    existing.map((r) => [r.shippingRateId, r] as const),
-  );
+  await writeShippingRateCache(shop, rates);
 
-  const merged = rates.map<ShippingRateEntry>((rate) => {
-    const prev = existingMap.get(rate.shippingRateId);
-    return {
-      ...rate,
-      enabled: prev?.enabled ?? true,
-    };
-  });
-
-  await writeShippingRateCache(shop, merged);
-
-  return merged;
-}
-
-export async function setShippingRateEnabled(
-  shop: string,
-  shippingRateId: string,
-  enabled: boolean,
-) {
-  const rates = await getShippingRates(shop);
-  const next = rates.map((rate) =>
-    rate.shippingRateId === shippingRateId ? { ...rate, enabled } : rate,
-  );
-
-  await writeShippingRateCache(shop, next);
-  return next;
+  return rates;
 }

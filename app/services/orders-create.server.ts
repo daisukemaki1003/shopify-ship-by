@@ -46,7 +46,6 @@ const extractRules = (rules: Rule[]): RuleLike[] =>
     targetId: rule.targetId,
     shippingRateIds: rule.shippingRateIds,
     days: rule.days,
-    enabled: rule.enabled,
   }));
 
 const formatWithTokens = (template: string | null | undefined, date: Date) => {

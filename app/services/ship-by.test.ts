@@ -8,8 +8,8 @@ const baseSetting = {
   deliveryKey: "shipping.requested_date",
   deliveryFormat: "YYYY-MM-DD",
   shippingRates: [
-    { shippingRateId: "sr_yamato_cool", handle: "yamato_cool", title: "Yamato Cool", enabled: true },
-    { shippingRateId: "sr_sagawa_regular", handle: "sagawa_regular", title: "Sagawa Regular", enabled: false },
+    { shippingRateId: "sr_yamato_cool", handle: "yamato_cool", title: "Yamato Cool" },
+    { shippingRateId: "sr_sagawa_regular", handle: "sagawa_regular", title: "Sagawa Regular" },
   ],
 };
 
@@ -34,7 +34,6 @@ test("配送ケース優先順位で商品×ShippingRateの最大daysを採用�
       targetId: null,
       shippingRateIds: [],
       days: 1,
-      enabled: true,
     },
     {
       id: "product-only",
@@ -42,7 +41,6 @@ test("配送ケース優先順位で商品×ShippingRateの最大daysを採用�
       targetId: "111",
       shippingRateIds: [],
       days: 2,
-      enabled: true,
     },
     {
       id: "product-with-rate",
@@ -50,7 +48,6 @@ test("配送ケース優先順位で商品×ShippingRateの最大daysを採用�
       targetId: "111",
       shippingRateIds: ["sr_yamato_cool"],
       days: 3,
-      enabled: true,
     },
   ];
 
@@ -90,7 +87,6 @@ test("週次と単発の休業日を考慮して前営業日に繰り下げる",
       targetId: null,
       shippingRateIds: ["sr_yamato_cool"],
       days: 1,
-      enabled: true,
     },
   ];
 
@@ -128,7 +124,6 @@ test("お届け日フォーマット不一致ならエラーを返す", () => {
       targetId: null,
       shippingRateIds: ["sr_yamato_cool"],
       days: 1,
-      enabled: true,
     },
   ];
 
@@ -144,45 +139,9 @@ test("お届け日フォーマット不一致ならエラーを返す", () => {
   assert.equal(result.error, "invalid_delivery_format");
 });
 
-test("配送ケースが無効ならエラーにする", () => {
-  const order = {
-    id: 4,
-    shipping_lines: [{ code: "sagawa_regular", id: "sr_sagawa_regular" }],
-    metafields: [
-      {
-        namespace: "shipping",
-        key: "requested_date",
-        value: "2025-05-10",
-      },
-    ],
-  };
-
-  const rules = [
-    {
-      id: "all-sagawa",
-      targetType: "all" as const,
-      targetId: null,
-      shippingRateIds: ["sr_sagawa_regular"],
-      days: 2,
-      enabled: true,
-    },
-  ];
-
-  const result = calculateShipBy({
-    order,
-    rules,
-    shopSetting: baseSetting,
-    holiday: { holidays: [], weeklyHolidays: [] },
-  });
-
-  assert.equal(result.ok, false);
-  if (result.ok) return;
-  assert.equal(result.error, "shipping_rate_disabled");
-});
-
 test("配送ケース不一致ならno_ruleエラー", () => {
   const order = {
-    id: 5,
+    id: 4,
     shipping_lines: [{ code: "yamato_cool", id: "sr_yamato_cool" }],
     metafields: [
       {
@@ -200,7 +159,6 @@ test("配送ケース不一致ならno_ruleエラー", () => {
       targetId: null,
       shippingRateIds: ["sr_other"],
       days: 1,
-      enabled: true,
     },
   ];
 
