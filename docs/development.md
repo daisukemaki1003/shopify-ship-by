@@ -1,6 +1,6 @@
 # 🔧 **出荷期限マネージャー｜エンジニア向け簡易仕様書**
 
-（実装者が必要な情報だけを抽出した技術仕様。現状の実装進捗は Phase 3 までで、以下はこれから実装する仕様を含みます）
+（実装者が必要な情報だけを抽出した技術仕様。現状の実装進捗は Phase 5 までで、以下はこれから実装する仕様を含みます）
 
 ---
 
@@ -31,10 +31,10 @@ Order Metafield / タグ / メモへ保存するアプリ。
 ```
 id: string (PK)
 shop_id: string
-target_type: "product" | "all_products" | "shipping_method"
-target_id: string | null  // product_id or shipping_method_id
-prefectures: string[]     // "tokyo", "hokkaido" など
-days: number              // 出荷日数
+target_type: "product" | "all"
+target_id: string | null        // product_id（product のとき必須）
+shipping_rate_ids: string[]     // Shopify Shipping Rate ID の配列。空配列なら配送ケース問わず適用
+days: number                    // 出荷日数
 enabled: boolean
 created_at: Date
 updated_at: Date
@@ -79,7 +79,8 @@ save_tag_format: string         // "ship-by-{YYYY}-{MM}-{DD}"
 save_note: boolean
 save_note_format: string
 save_metafield: boolean
-shipping_method_settings: JSON  // code/title に対して ON/OFF
+language: "ja" | "en"
+shipping_rates: JSON            // Shipping Rate キャッシュ（id/handle/title/zone_name/enabled）
 created_at: Date
 updated_at: Date
 ```

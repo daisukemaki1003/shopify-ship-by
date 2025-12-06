@@ -7,7 +7,7 @@
 - timestamps = `createdAt @default(now())` / `updatedAt @updatedAt`
 
 ### Enum
-- `RuleTargetType`: `product` | `all_products` | `shipping_method`
+- `RuleTargetType`: `product` | `all`
 - `DeliverySource`: `metafield` | `attributes`
 
 ---
@@ -46,7 +46,7 @@
 ---
 
 ## ShopSetting（店舗設定）
-目的: お届け希望日の取得方法や保存先設定、配送方法ON/OFFなど店舗ごとの設定。
+目的: お届け希望日の取得方法や保存先設定、Shipping Rate キャッシュ（ON/OFF含む）。
 
 | カラム | 型 | 説明 |
 | --- | --- | --- |
@@ -56,7 +56,8 @@
 | deliveryFormat | String? | 日付パースフォーマット（例: `YYYY-MM-DD`） |
 | saveTag / saveNote / saveMetafield | Boolean | タグ/メモ/メタフィールドへの保存ON/OFF |
 | saveTagFormat / saveNoteFormat | String? | 保存フォーマット（例: `ship-by-{YYYY}-{MM}-{DD}`） |
-| shippingMethodSettings | Json? | 配送方法のON/OFFマスタ。例: `{ "yamato_cool": { "title": "ヤマト運輸 クール便", "enabled": true }}` |
+| language | String? | UI言語 |
+| shippingRates | Json | Shipping Rate キャッシュ（`id/handle/title/zoneName/enabled` の配列） |
 | createdAt / updatedAt | DateTime | timestamps |
 
 インデックス: なし（PK のみ）
@@ -64,20 +65,39 @@
 ---
 
 ## Rule（出荷ルール）
-目的: 出荷日数を決めるルール（商品/配送方法/全商品 × 都道府県）。
+目的: 出荷日数を決めるルール（商品/全商品 × Shipping Rate）。
 
 | カラム | 型 | 説明 |
 | --- | --- | --- |
 | id | String (PK, cuid) | ルールID |
 | shopId | String (idx) | 店舗ID |
-| targetType | RuleTargetType | `product` / `all_products` / `shipping_method` |
-| targetId | String? | productId もしくは shippingMethodId（全商品は null） |
-| prefectures | Json | 対象都道府県コード配列（例: `["tokyo","hokkaido"]`） |
+| targetType | RuleTargetType | `product` / `all` |
+| targetId | String? | productId（全商品は null） |
+| shippingRateIds | Json | Shipping Rate ID 配列（空配列なら配送ケース問わず適用） |
 | days | Int | 出荷日数（到着日の何日前に発送するか） |
 | enabled | Boolean | ルール有効フラグ |
 | createdAt / updatedAt | DateTime | timestamps |
 
 インデックス: `shopId`
+
+---
+
+## ShippingRate（配送ケースキャッシュ）
+目的: `read_shipping` で取得した配送ケースを保存し、ルール作成で選択できるようにする。
+
+| カラム | 型 | 説明 |
+| --- | --- | --- |
+| id | String (PK, cuid) | レコードID |
+| shopId | String (idx) | 店舗ID |
+| shippingRateId | String | Shopify の Shipping Rate ID |
+| title | String | 表示名 |
+| handle | String | code / handle |
+| zoneName | String? | 所属配送ゾーン |
+| enabled | Boolean | ルール選択時の有効フラグ |
+| syncedAt | DateTime | 同期日時 |
+| createdAt / updatedAt | DateTime | timestamps |
+
+インデックス: `shopId`, `shopId + shippingRateId (unique)`
 
 ---
 

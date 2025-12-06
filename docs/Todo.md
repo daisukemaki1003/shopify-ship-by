@@ -29,8 +29,8 @@
 - [x] Phase 1 完了（Prisma schema / migrate / seed 完了）
 - [x] Phase 2 完了（OAuth / shopごとの token 保存 / admin API 呼べる）
 - [x] Phase 3 完了（Shipping Rates 同期 + ON/OFF 管理できる）
-- [ ] Phase 4 完了（計算コア：日付取得→ルール適用→休業日考慮まで単体テスト）
-- [ ] Phase 5 完了（orders/create で自動計算→保存→エラー記録）
+- [x] Phase 4 完了（計算コア：日付取得→ルール適用→休業日考慮まで単体テスト）
+- [x] Phase 5 完了（orders/create で自動計算→保存→エラー記録）
 - [ ] Phase 6 完了（出荷ルール/休業日/設定/ダッシュボード UI）
 - [ ] Phase 7 完了（エラー一覧 UI + 再計算ボタン）
 - [ ] Phase 8 完了（本番Env/監査/アプリ提出準備）

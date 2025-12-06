@@ -1,15 +1,19 @@
 import type { DeliverySource, RuleTargetType } from "@prisma/client";
 
-type ShippingMethodSettings = Record<
-  string,
-  { title?: string; enabled?: boolean; price?: string; currency?: string | null }
->;
+type ShippingRateLike = {
+  shippingRateId: string;
+  handle?: string | null;
+  title?: string | null;
+  zoneName?: string | null;
+  enabled?: boolean;
+};
 
 export type ShopSettingLike = {
   deliverySource?: DeliverySource | null;
   deliveryKey?: string | null;
   deliveryFormat?: string | null;
-  shippingMethodSettings?: ShippingMethodSettings | null;
+  shippingRates?: ShippingRateLike[] | null;
+  language?: string | null;
 };
 
 export type RuleLike = {
@@ -17,7 +21,7 @@ export type RuleLike = {
   shopId?: string;
   targetType: RuleTargetType;
   targetId: string | null;
-  prefectures: unknown;
+  shippingRateIds: unknown;
   days: number;
   enabled: boolean;
 };
@@ -31,11 +35,13 @@ export type ShopifyOrderLike = {
   id?: string | number;
   attributes?: Array<{ name?: string | null; value?: unknown }>;
   metafields?: Array<{ namespace?: string | null; key?: string | null; value?: unknown }>;
-  shipping_lines?: Array<{ code?: string | null; title?: string | null }>;
-  shipping_address?: {
-    province?: string | null;
-    province_code?: string | null;
-  };
+  shipping_lines?: Array<{
+    code?: string | null;
+    title?: string | null;
+    delivery_category?: string | null;
+    shipping_rate_handle?: string | null;
+    id?: string | number | null;
+  }>;
   line_items?: Array<{ product_id?: number | string | null }>;
 };
 
@@ -46,10 +52,9 @@ export type CalculationError =
   | "missing_setting"
   | "delivery_value_not_found"
   | "invalid_delivery_format"
-  | "shipping_method_not_found"
-  | "shipping_method_disabled"
-  | "shipping_method_not_configured"
-  | "prefecture_missing"
+  | "shipping_rate_not_found"
+  | "shipping_rate_disabled"
+  | "shipping_rate_not_configured"
   | "no_rule"
   | "holiday_never_resolves";
 
@@ -58,80 +63,17 @@ export type CalculationResult =
       shipBy: Date;
       deliveryDate: Date;
       adoptDays: number;
-      shippingMethod: string;
+      shippingRateId: string;
       matchedRuleIds: string[];
       adjustedFrom: Date;
     }> & { error?: never })
   | (Err & { value?: never });
 
-const PREF_CODE_TO_SLUG: Record<string, string> = {
-  "JP-01": "hokkaido",
-  "JP-02": "aomori",
-  "JP-03": "iwate",
-  "JP-04": "miyagi",
-  "JP-05": "akita",
-  "JP-06": "yamagata",
-  "JP-07": "fukushima",
-  "JP-08": "ibaraki",
-  "JP-09": "tochigi",
-  "JP-10": "gunma",
-  "JP-11": "saitama",
-  "JP-12": "chiba",
-  "JP-13": "tokyo",
-  "JP-14": "kanagawa",
-  "JP-15": "niigata",
-  "JP-16": "toyama",
-  "JP-17": "ishikawa",
-  "JP-18": "fukui",
-  "JP-19": "yamanashi",
-  "JP-20": "nagano",
-  "JP-21": "gifu",
-  "JP-22": "shizuoka",
-  "JP-23": "aichi",
-  "JP-24": "mie",
-  "JP-25": "shiga",
-  "JP-26": "kyoto",
-  "JP-27": "osaka",
-  "JP-28": "hyogo",
-  "JP-29": "nara",
-  "JP-30": "wakayama",
-  "JP-31": "tottori",
-  "JP-32": "shimane",
-  "JP-33": "okayama",
-  "JP-34": "hiroshima",
-  "JP-35": "yamaguchi",
-  "JP-36": "tokushima",
-  "JP-37": "kagawa",
-  "JP-38": "ehime",
-  "JP-39": "kochi",
-  "JP-40": "fukuoka",
-  "JP-41": "saga",
-  "JP-42": "nagasaki",
-  "JP-43": "kumamoto",
-  "JP-44": "oita",
-  "JP-45": "miyazaki",
-  "JP-46": "kagoshima",
-  "JP-47": "okinawa",
-};
-
 const WEEKDAY_CODES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
-
 const DEFAULT_FORMAT = "YYYY-MM-DD";
 
 const normalizeKey = (value: string) =>
   value.trim().toLowerCase().replace(/[\s-]+/g, "_");
-
-const normalizePrefecture = (value: string | null | undefined) => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  const isoSlug = PREF_CODE_TO_SLUG[trimmed.toUpperCase()];
-  if (isoSlug) return isoSlug;
-
-  const slug = trimmed.toLowerCase().replace(/[^a-z]/g, "");
-  return slug || null;
-};
 
 const buildFormatRegex = (format: string) => {
   const escaped = format.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
@@ -243,32 +185,41 @@ export const parseDeliveryDate = (
   return { ok: true, value: parsed };
 };
 
-const buildShippingMethodLookup = (settings: ShippingMethodSettings | null | undefined) => {
-  const all = new Map<string, string>();
-  const enabled = new Map<string, string>();
+const buildShippingRateLookup = (shippingRates: ShippingRateLike[] | null | undefined) => {
+  const all = new Map<string, ShippingRateLike>();
+  const enabled = new Map<string, ShippingRateLike>();
 
-  Object.entries(settings ?? {}).forEach(([key, value]) => {
-    const normalized = normalizeKey(key);
-    all.set(normalized, key);
-    if (value?.enabled !== false) {
-      enabled.set(normalized, key);
-    }
+  (shippingRates ?? []).forEach((rate) => {
+    if (!rate) return;
+    const keys = new Set<string>();
+    if (rate.shippingRateId) keys.add(normalizeKey(rate.shippingRateId));
+    if (rate.handle) keys.add(normalizeKey(rate.handle));
+    if (rate.title) keys.add(normalizeKey(rate.title));
+
+    keys.forEach((key) => {
+      all.set(key, rate);
+      if (rate.enabled !== false) {
+        enabled.set(key, rate);
+      }
+    });
   });
 
   return { all, enabled };
 };
 
-export const detectShippingMethod = (
+export const detectShippingRate = (
   order: ShopifyOrderLike,
   shopSetting: ShopSettingLike,
 ): Ok<string> | Err => {
-  const settings = shopSetting.shippingMethodSettings ?? {};
-  const lookup = buildShippingMethodLookup(settings);
+  const lookup = buildShippingRateLookup(shopSetting.shippingRates);
   const candidates: string[] = [];
 
   order.shipping_lines?.forEach((line) => {
+    if (line?.shipping_rate_handle) candidates.push(line.shipping_rate_handle);
     if (line?.code) candidates.push(line.code);
-    else if (line?.title) candidates.push(line.title);
+    if (line?.delivery_category) candidates.push(line.delivery_category);
+    if (line?.title) candidates.push(line.title);
+    if (line?.id != null) candidates.push(String(line.id));
   });
 
   order.metafields?.forEach((mf) => {
@@ -290,26 +241,27 @@ export const detectShippingMethod = (
       if (!lookup.enabled.has(normalized)) {
         return {
           ok: false,
-          error: "shipping_method_disabled",
-          message: `shipping method ${canonical} is disabled`,
+          error: "shipping_rate_disabled",
+          message: `shipping rate ${canonical.title ?? canonical.handle ?? canonical.shippingRateId
+            } is disabled`,
         };
       }
-      return { ok: true, value: canonical };
+      return { ok: true, value: canonical.shippingRateId };
     }
   }
 
   if (lookup.all.size > 0) {
     return {
       ok: false,
-      error: "shipping_method_not_found",
-      message: "shipping method not found on order",
+      error: "shipping_rate_not_found",
+      message: "shipping rate not found on order",
     };
   }
 
   return {
     ok: false,
-    error: "shipping_method_not_configured",
-    message: "no shipping methods are configured",
+    error: "shipping_rate_not_configured",
+    message: "no shipping rates are configured",
   };
 };
 
@@ -318,85 +270,73 @@ const getProductIds = (order: ShopifyOrderLike) =>
     .map((item) => (item?.product_id != null ? String(item.product_id) : null))
     .filter((id): id is string => Boolean(id));
 
-const normalizePrefectureCandidates = (order: ShopifyOrderLike) =>
-  normalizePrefecture(
-    order.shipping_address?.province_code ?? order.shipping_address?.province,
-  );
-
 const ensureArray = (value: unknown): string[] =>
   Array.isArray(value) ? value.map((v) => String(v)) : [];
+
+const normalizeIdList = (value: unknown) =>
+  ensureArray(value).map((v) => normalizeKey(String(v)));
 
 export const pickAdoptedRule = (
   params: {
     rules: RuleLike[];
-    shippingMethod: string;
-    shopSetting: ShopSettingLike;
-    prefecture: string | null;
+    shippingRateId: string;
     productIds: string[];
   },
 ): Ok<{ days: number; ruleIds: string[] }> | Err => {
-  const { rules, shippingMethod, prefecture, productIds, shopSetting } = params;
-  if (!prefecture) {
-    return {
-      ok: false,
-      error: "prefecture_missing",
-      message: "shipping address prefecture is missing",
-    };
+  const { rules, shippingRateId, productIds } = params;
+  const normalizedProductIds = productIds.map((p) => String(p));
+
+  const matchesProduct = (rule: RuleLike) =>
+    rule.targetType === "all" ||
+    (rule.targetId ? normalizedProductIds.includes(String(rule.targetId)) : false);
+
+  const matchesShippingRate = (rule: RuleLike) => {
+    const rateIds = normalizeIdList(rule.shippingRateIds);
+    if (rateIds.length === 0) return true;
+    return rateIds.includes(normalizeKey(shippingRateId));
+  };
+
+  const hasRateConstraint = (rule: RuleLike) =>
+    normalizeIdList(rule.shippingRateIds).length > 0;
+
+  const tiers: Array<(rule: RuleLike) => boolean> = [
+    (rule) =>
+      rule.targetType === "product" &&
+      hasRateConstraint(rule) &&
+      matchesProduct(rule) &&
+      matchesShippingRate(rule),
+    (rule) =>
+      rule.targetType === "product" &&
+      !hasRateConstraint(rule) &&
+      matchesProduct(rule),
+    (rule) =>
+      rule.targetType === "all" &&
+      hasRateConstraint(rule) &&
+      matchesShippingRate(rule),
+    (rule) => rule.targetType === "all" && !hasRateConstraint(rule),
+  ];
+
+  for (const tier of tiers) {
+    const candidates = rules.filter((rule) => rule.enabled && tier(rule));
+    if (candidates.length === 0) continue;
+
+    let adoptDays = -Infinity;
+    const matchedRuleIds: string[] = [];
+    candidates.forEach((rule) => {
+      if (rule.days > adoptDays) {
+        adoptDays = rule.days;
+      }
+    });
+    candidates.forEach((rule) => {
+      if (rule.days === adoptDays) {
+        matchedRuleIds.push(rule.id);
+      }
+    });
+
+    return { ok: true, value: { days: adoptDays, ruleIds: matchedRuleIds } };
   }
 
-  const enabledShipping = buildShippingMethodLookup(
-    shopSetting.shippingMethodSettings ?? {},
-  ).enabled;
-
-  const candidates = rules.filter((rule) => {
-    if (!rule.enabled) return false;
-
-    const prefectureList = ensureArray(rule.prefectures).map((p) =>
-      normalizePrefecture(String(p)),
-    );
-    if (
-      prefectureList.length > 0 &&
-      !prefectureList.includes(prefecture)
-    ) {
-      return false;
-    }
-
-    if (rule.targetType === "all_products") return true;
-
-    if (rule.targetType === "product") {
-      return rule.targetId ? productIds.includes(String(rule.targetId)) : false;
-    }
-
-    if (rule.targetType === "shipping_method") {
-      const normalizedTarget = normalizeKey(rule.targetId ?? "");
-      return (
-        normalizedTarget === normalizeKey(shippingMethod) &&
-        enabledShipping.has(normalizedTarget)
-      );
-    }
-
-    return false;
-  });
-
-  if (candidates.length === 0) {
-    return { ok: false, error: "no_rule", message: "no matching rule found" };
-  }
-
-  let adoptDays = -Infinity;
-  const matchedRuleIds: string[] = [];
-  candidates.forEach((rule) => {
-    if (rule.days > adoptDays) {
-      adoptDays = rule.days;
-    }
-  });
-
-  candidates.forEach((rule) => {
-    if (rule.days === adoptDays) {
-      matchedRuleIds.push(rule.id);
-    }
-  });
-
-  return { ok: true, value: { days: adoptDays, ruleIds: matchedRuleIds } };
+  return { ok: false, error: "no_rule", message: "no matching rule found" };
 };
 
 const addDays = (date: Date, days: number) => {
@@ -445,20 +385,14 @@ export const calculateShipBy = (input: {
   const deliveryResult = parseDeliveryDate(input.order, input.shopSetting);
   if (!deliveryResult.ok) return deliveryResult;
 
-  const shippingMethodResult = detectShippingMethod(
-    input.order,
-    input.shopSetting,
-  );
-  if (!shippingMethodResult.ok) return shippingMethodResult;
+  const shippingRateResult = detectShippingRate(input.order, input.shopSetting);
+  if (!shippingRateResult.ok) return shippingRateResult;
 
-  const prefecture = normalizePrefectureCandidates(input.order);
   const productIds = getProductIds(input.order);
 
   const ruleResult = pickAdoptedRule({
     rules: input.rules,
-    shippingMethod: shippingMethodResult.value,
-    shopSetting: input.shopSetting,
-    prefecture,
+    shippingRateId: shippingRateResult.value,
     productIds,
   });
 
@@ -474,7 +408,7 @@ export const calculateShipBy = (input: {
       shipBy: adjustedResult.value,
       deliveryDate: deliveryResult.value,
       adoptDays: ruleResult.value.days,
-      shippingMethod: shippingMethodResult.value,
+      shippingRateId: shippingRateResult.value,
       matchedRuleIds: ruleResult.value.ruleIds,
       adjustedFrom: baseShipBy,
     },

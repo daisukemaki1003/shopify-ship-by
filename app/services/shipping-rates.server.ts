@@ -5,80 +5,81 @@ import { getAdminClient } from "./admin-client.server";
 type RawShippingRate = {
   code?: string | null;
   name?: string | null;
-  price?: string | null;
-  currency?: string | null;
   service_code?: string | null;
   id?: number | string | null;
+  price?: string | null;
+  currency?: string | null;
 };
 
 type RawShippingZone = {
+  name?: string | null;
   shipping_rates?: RawShippingRate[] | null;
   price_based_shipping_rates?: RawShippingRate[] | null;
   weight_based_shipping_rates?: RawShippingRate[] | null;
 };
 
-export interface ShippingRateCandidate {
-  key: string;
-  code: string;
+export type ShippingRateEntry = {
+  shippingRateId: string;
+  handle: string;
   title: string;
-  price: string;
-  currency: string | null;
-}
-
-type ShippingMethodSettings = Record<
-  string,
-  {
-    title: string;
-    enabled: boolean;
-    price: string;
-    currency: string | null;
-  }
->;
-
-type ShopSettingDelegate = {
-  findUnique: (...args: unknown[]) => Promise<unknown>;
-  upsert: (...args: unknown[]) => Promise<unknown>;
+  zoneName: string | null;
+  enabled: boolean;
 };
 
-const db = prisma as typeof prisma & { shopSetting: ShopSettingDelegate };
-const EMPTY_SETTINGS: ShippingMethodSettings = {};
+const parseShippingRates = (value: unknown): ShippingRateEntry[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const obj = item as Partial<ShippingRateEntry>;
+      if (!obj) return null;
+      const shippingRateId = obj.shippingRateId ?? obj.handle ?? obj.title;
+      if (!shippingRateId) return null;
+      return {
+        shippingRateId: String(shippingRateId),
+        handle: String(obj.handle ?? shippingRateId),
+        title: String(obj.title ?? obj.handle ?? shippingRateId),
+        zoneName: obj.zoneName ? String(obj.zoneName) : null,
+        enabled: obj.enabled !== false,
+      };
+    })
+    .filter((v): v is ShippingRateEntry => Boolean(v));
+};
 
-export async function getShippingMethodSettings(shopId: string) {
-  const current = (await db.shopSetting.findUnique({
-    where: { shopId },
-  })) as { shippingMethodSettings?: ShippingMethodSettings } | null;
-
-  return (current?.shippingMethodSettings as ShippingMethodSettings) ?? EMPTY_SETTINGS;
-}
-
-const normalizeRate = (rate: RawShippingRate): ShippingRateCandidate | null => {
-  const codeCandidate =
-    rate.code ??
-    rate.service_code ??
+const normalizeRate = (
+  rate: RawShippingRate,
+  zoneName: string | null,
+): ShippingRateEntry | null => {
+  const shippingRateId =
     (typeof rate.id === "string" ? rate.id : null) ??
     (typeof rate.id === "number" ? String(rate.id) : null) ??
+    rate.code ??
+    rate.service_code ??
     rate.name;
 
-  const code = (codeCandidate ?? "").trim();
-  if (!code) return null;
+  const handle =
+    rate.code ?? rate.service_code ?? rate.name ?? (shippingRateId ?? "");
 
-  const title = (rate.name ?? code).trim();
-  const price = (rate.price ?? "0").trim();
-  const currency = rate.currency ?? null;
+  const title = (rate.name ?? handle ?? shippingRateId ?? "").trim();
+
+  const id = (shippingRateId ?? "").trim();
+  const handleNormalized = (handle ?? "").trim();
+
+  if (!id && !handleNormalized) return null;
 
   return {
-    key: code,
-    code,
-    title,
-    price,
-    currency,
+    shippingRateId: id || handleNormalized,
+    handle: handleNormalized || id,
+    title: title || handleNormalized || id,
+    zoneName: zoneName?.trim() || null,
+    enabled: true,
   };
 };
 
-const extractRates = (zones: RawShippingZone[]): ShippingRateCandidate[] => {
-  const map = new Map<string, ShippingRateCandidate>();
+const extractRates = (zones: RawShippingZone[]): ShippingRateEntry[] => {
+  const map = new Map<string, ShippingRateEntry>();
 
   zones.forEach((zone) => {
+    const zoneName = zone?.name ?? null;
     const candidates = [
       ...(zone.shipping_rates ?? []),
       ...(zone.price_based_shipping_rates ?? []),
@@ -86,11 +87,14 @@ const extractRates = (zones: RawShippingZone[]): ShippingRateCandidate[] => {
     ];
 
     candidates.forEach((rate) => {
-      const normalized = normalizeRate(rate);
+      const normalized = normalizeRate(rate, zoneName);
       if (!normalized) return;
 
-      if (!map.has(normalized.key)) {
-        map.set(normalized.key, normalized);
+      const key = normalized.shippingRateId || normalized.handle;
+      if (!key) return;
+
+      if (!map.has(key)) {
+        map.set(key, normalized);
       }
     });
   });
@@ -126,59 +130,103 @@ export async function fetchShippingRates(shop: string) {
   return extractRates(zones);
 }
 
-export async function syncShippingMethodSettings(shop: string) {
+const writeShippingRateCache = async (
+  shop: string,
+  rates: ShippingRateEntry[],
+) => {
+  const rateIds = rates.map((r) => r.shippingRateId);
+
+  await prisma.$transaction([
+    ...rates.map((rate) =>
+      prisma.shippingRate.upsert({
+        where: {
+          shopId_shippingRateId: {
+            shopId: shop,
+            shippingRateId: rate.shippingRateId,
+          },
+        },
+        create: {
+          shopId: shop,
+          shippingRateId: rate.shippingRateId,
+          title: rate.title,
+          handle: rate.handle,
+          zoneName: rate.zoneName,
+          enabled: rate.enabled,
+        },
+        update: {
+          title: rate.title,
+          handle: rate.handle,
+          zoneName: rate.zoneName,
+          enabled: rate.enabled,
+          syncedAt: new Date(),
+        },
+      }),
+    ),
+    prisma.shippingRate.deleteMany({
+      where: { shopId: shop, shippingRateId: { notIn: rateIds } },
+    }),
+    prisma.shopSetting.upsert({
+      where: { shopId: shop },
+      create: { shopId: shop, shippingRates: rates },
+      update: { shippingRates: rates },
+    }),
+  ]);
+};
+
+export async function getShippingRates(shop: string): Promise<ShippingRateEntry[]> {
+  const setting = await prisma.shopSetting.findUnique({ where: { shopId: shop } });
+  const cached = parseShippingRates(setting?.shippingRates);
+  if (cached.length > 0) return cached;
+
+  const dbRates = await prisma.shippingRate.findMany({ where: { shopId: shop } });
+  if (dbRates.length > 0) {
+    const normalized = dbRates.map<ShippingRateEntry>((r) => ({
+      shippingRateId: r.shippingRateId,
+      handle: r.handle,
+      title: r.title,
+      zoneName: r.zoneName,
+      enabled: r.enabled,
+    }));
+    await prisma.shopSetting.upsert({
+      where: { shopId: shop },
+      create: { shopId: shop, shippingRates: normalized },
+      update: { shippingRates: normalized },
+    });
+    return normalized;
+  }
+  return [];
+}
+
+export async function syncShippingRates(shop: string) {
   const rates = await fetchShippingRates(shop);
+  const existing = await prisma.shippingRate.findMany({ where: { shopId: shop } });
+  const existingMap = new Map(
+    existing.map((r) => [r.shippingRateId, r] as const),
+  );
 
-  const existing = await getShippingMethodSettings(shop);
-
-  const merged: ShippingMethodSettings = {};
-
-  rates.forEach((rate) => {
-    const prev = existing[rate.key];
-    merged[rate.key] = {
-      title: rate.title,
+  const merged = rates.map<ShippingRateEntry>((rate) => {
+    const prev = existingMap.get(rate.shippingRateId);
+    return {
+      ...rate,
       enabled: prev?.enabled ?? true,
-      price: rate.price,
-      currency: rate.currency,
     };
   });
 
-  await db.shopSetting.upsert({
-    where: { shopId: shop },
-    create: {
-      shopId: shop,
-      shippingMethodSettings: merged,
-    },
-    update: {
-      shippingMethodSettings: merged,
-    },
-  });
+  await writeShippingRateCache(shop, merged);
 
   return merged;
 }
 
-export async function setShippingMethodEnabled(
+export async function setShippingRateEnabled(
   shop: string,
-  key: string,
+  shippingRateId: string,
   enabled: boolean,
 ) {
-  const existing = await getShippingMethodSettings(shop);
+  const rates = await getShippingRates(shop);
+  const next = rates.map((rate) =>
+    rate.shippingRateId === shippingRateId ? { ...rate, enabled } : rate,
+  );
 
-  const next: ShippingMethodSettings = {
-    ...existing,
-    [key]: {
-      title: existing[key]?.title ?? key,
-      enabled,
-      price: existing[key]?.price ?? "",
-      currency: existing[key]?.currency ?? null,
-    },
-  };
-
-  await db.shopSetting.upsert({
-    where: { shopId: shop },
-    create: { shopId: shop, shippingMethodSettings: next },
-    update: { shippingMethodSettings: next },
-  });
-
+  await writeShippingRateCache(shop, next);
   return next;
 }

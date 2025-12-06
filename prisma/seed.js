@@ -30,10 +30,23 @@ async function main() {
       saveTagFormat: "ship-by-{YYYY}-{MM}-{DD}",
       saveNote: true,
       saveNoteFormat: "出荷期限：{YYYY}-{MM}-{DD}",
-      shippingMethodSettings: {
-        yamato_cool: { title: "ヤマト クール便", enabled: true },
-        sagawa_regular: { title: "佐川 通常便", enabled: false },
-      },
+      language: "ja",
+      shippingRates: [
+        {
+          shippingRateId: "sr_yamato_cool",
+          handle: "yamato_cool",
+          title: "ヤマト クール便",
+          zoneName: "Japan",
+          enabled: true,
+        },
+        {
+          shippingRateId: "sr_sagawa_regular",
+          handle: "sagawa_regular",
+          title: "佐川 通常便",
+          zoneName: "Japan",
+          enabled: false,
+        },
+      ],
     },
   });
 
@@ -53,18 +66,18 @@ async function main() {
       {
         id: "rule-all",
         shopId,
-        targetType: "all_products",
+        targetType: "all",
         targetId: null,
-        prefectures: ["tokyo", "kanagawa", "chiba", "saitama"],
+        shippingRateIds: ["sr_yamato_cool"],
         days: 2,
         enabled: true,
       },
       {
         id: "rule-shipping-cool",
         shopId,
-        targetType: "shipping_method",
-        targetId: "yamato_cool",
-        prefectures: ["hokkaido"],
+        targetType: "product",
+        targetId: "sample-product-id",
+        shippingRateIds: ["sr_yamato_cool"],
         days: 3,
         enabled: true,
       },

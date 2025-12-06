@@ -7,17 +7,16 @@ const baseSetting = {
   deliverySource: "metafield" as const,
   deliveryKey: "shipping.requested_date",
   deliveryFormat: "YYYY-MM-DD",
-  shippingMethodSettings: {
-    yamato_cool: { title: "Yamato Cool", enabled: true },
-    sagawa_regular: { title: "Sagawa Regular", enabled: false },
-  },
+  shippingRates: [
+    { shippingRateId: "sr_yamato_cool", handle: "yamato_cool", title: "Yamato Cool", enabled: true },
+    { shippingRateId: "sr_sagawa_regular", handle: "sagawa_regular", title: "Sagawa Regular", enabled: false },
+  ],
 };
 
-test("配送方法ルールで最大daysを採用してship-byを計算する", () => {
+test("配送ケース優先順位で商品×ShippingRateの最大daysを採用する", () => {
   const order = {
     id: 1,
-    shipping_lines: [{ code: "yamato_cool" }],
-    shipping_address: { province_code: "JP-01" },
+    shipping_lines: [{ code: "yamato_cool", id: "sr_yamato_cool" }],
     metafields: [
       {
         namespace: "shipping",
@@ -30,18 +29,26 @@ test("配送方法ルールで最大daysを採用してship-byを計算する", 
 
   const rules = [
     {
-      id: "all-products",
-      targetType: "all_products" as const,
+      id: "all-open",
+      targetType: "all" as const,
       targetId: null,
-      prefectures: ["hokkaido"],
+      shippingRateIds: [],
+      days: 1,
+      enabled: true,
+    },
+    {
+      id: "product-only",
+      targetType: "product" as const,
+      targetId: "111",
+      shippingRateIds: [],
       days: 2,
       enabled: true,
     },
     {
-      id: "shipping-specific",
-      targetType: "shipping_method" as const,
-      targetId: "yamato_cool",
-      prefectures: ["hokkaido"],
+      id: "product-with-rate",
+      targetType: "product" as const,
+      targetId: "111",
+      shippingRateIds: ["sr_yamato_cool"],
       days: 3,
       enabled: true,
     },
@@ -58,15 +65,14 @@ test("配送方法ルールで最大daysを採用してship-byを計算する", 
   if (!result.ok) throw new Error("calculation failed");
 
   assert.equal(result.value.adoptDays, 3);
-  assert.deepEqual(result.value.matchedRuleIds, ["shipping-specific"]);
+  assert.deepEqual(result.value.matchedRuleIds, ["product-with-rate"]);
   assert.equal(toISODate(result.value.shipBy), "2025-05-07");
 });
 
 test("週次と単発の休業日を考慮して前営業日に繰り下げる", () => {
   const order = {
     id: 2,
-    shipping_lines: [{ code: "yamato_cool" }],
-    shipping_address: { province_code: "JP-13" },
+    shipping_lines: [{ code: "yamato_cool", id: "sr_yamato_cool" }],
     metafields: [
       {
         namespace: "shipping",
@@ -79,10 +85,10 @@ test("週次と単発の休業日を考慮して前営業日に繰り下げる",
 
   const rules = [
     {
-      id: "tokyo-all",
-      targetType: "all_products" as const,
+      id: "all-yamato",
+      targetType: "all" as const,
       targetId: null,
-      prefectures: ["tokyo"],
+      shippingRateIds: ["sr_yamato_cool"],
       days: 1,
       enabled: true,
     },
@@ -105,8 +111,7 @@ test("週次と単発の休業日を考慮して前営業日に繰り下げる",
 test("お届け日フォーマット不一致ならエラーを返す", () => {
   const order = {
     id: 3,
-    shipping_lines: [{ code: "yamato_cool" }],
-    shipping_address: { province_code: "JP-01" },
+    shipping_lines: [{ code: "yamato_cool", id: "sr_yamato_cool" }],
     metafields: [
       {
         namespace: "shipping",
@@ -118,10 +123,10 @@ test("お届け日フォーマット不一致ならエラーを返す", () => {
 
   const rules = [
     {
-      id: "hokkaido-all",
-      targetType: "all_products" as const,
+      id: "all-yamato",
+      targetType: "all" as const,
       targetId: null,
-      prefectures: ["hokkaido"],
+      shippingRateIds: ["sr_yamato_cool"],
       days: 1,
       enabled: true,
     },
@@ -139,11 +144,10 @@ test("お届け日フォーマット不一致ならエラーを返す", () => {
   assert.equal(result.error, "invalid_delivery_format");
 });
 
-test("設定で配送方法が無効ならエラーにする", () => {
+test("配送ケースが無効ならエラーにする", () => {
   const order = {
     id: 4,
-    shipping_lines: [{ code: "sagawa_regular" }],
-    shipping_address: { province_code: "JP-12" },
+    shipping_lines: [{ code: "sagawa_regular", id: "sr_sagawa_regular" }],
     metafields: [
       {
         namespace: "shipping",
@@ -155,10 +159,10 @@ test("設定で配送方法が無効ならエラーにする", () => {
 
   const rules = [
     {
-      id: "chiba-all",
-      targetType: "all_products" as const,
+      id: "all-sagawa",
+      targetType: "all" as const,
       targetId: null,
-      prefectures: ["chiba"],
+      shippingRateIds: ["sr_sagawa_regular"],
       days: 2,
       enabled: true,
     },
@@ -173,14 +177,13 @@ test("設定で配送方法が無効ならエラーにする", () => {
 
   assert.equal(result.ok, false);
   if (result.ok) return;
-  assert.equal(result.error, "shipping_method_disabled");
+  assert.equal(result.error, "shipping_rate_disabled");
 });
 
-test("都道府県が合致しない場合はno_ruleエラー", () => {
+test("配送ケース不一致ならno_ruleエラー", () => {
   const order = {
     id: 5,
-    shipping_lines: [{ code: "yamato_cool" }],
-    shipping_address: { province_code: "JP-47" },
+    shipping_lines: [{ code: "yamato_cool", id: "sr_yamato_cool" }],
     metafields: [
       {
         namespace: "shipping",
@@ -192,10 +195,10 @@ test("都道府県が合致しない場合はno_ruleエラー", () => {
 
   const rules = [
     {
-      id: "kantou",
-      targetType: "all_products" as const,
+      id: "different-rate",
+      targetType: "all" as const,
       targetId: null,
-      prefectures: ["tokyo", "kanagawa"],
+      shippingRateIds: ["sr_other"],
       days: 1,
       enabled: true,
     },

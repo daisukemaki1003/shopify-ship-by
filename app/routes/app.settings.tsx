@@ -2,27 +2,24 @@ import { useFetcher, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import {
-  getShippingMethodSettings,
-  setShippingMethodEnabled,
-  syncShippingMethodSettings,
+  getShippingRates,
+  setShippingRateEnabled,
+  syncShippingRates,
+  type ShippingRateEntry,
 } from "../services/shipping-rates.server";
-
-type ShippingMethodSettings = Awaited<
-  ReturnType<typeof getShippingMethodSettings>
->;
 
 type LoaderData = {
   shop: string;
-  settings: ShippingMethodSettings;
+  shippingRates: ShippingRateEntry[];
 };
 
-type ActionData = { settings: ShippingMethodSettings };
+type ActionData = { shippingRates: ShippingRateEntry[] };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const settings = await getShippingMethodSettings(session.shop);
+  const shippingRates = await getShippingRates(session.shop);
 
-  return { shop: session.shop, settings };
+  return { shop: session.shop, shippingRates };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -31,18 +28,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const actionType = form.get("_action");
 
   if (actionType === "sync") {
-    const settings = await syncShippingMethodSettings(session.shop);
-    return { settings };
+    const shippingRates = await syncShippingRates(session.shop);
+    return { shippingRates };
   }
 
   if (actionType === "toggle") {
     const key = String(form.get("key") ?? "");
     const enabled = form.get("enabled") === "true";
-    const settings = await setShippingMethodEnabled(session.shop, key, enabled);
-    return { settings };
+    const shippingRates = await setShippingRateEnabled(session.shop, key, enabled);
+    return { shippingRates };
   }
 
-  return { settings: await getShippingMethodSettings(session.shop) };
+  return { shippingRates: await getShippingRates(session.shop) };
 };
 
 export default function SettingsPage() {
@@ -50,23 +47,23 @@ export default function SettingsPage() {
   const syncFetcher = useFetcher<ActionData>();
   const toggleFetcher = useFetcher<ActionData>();
 
-  const settings =
-    toggleFetcher.data?.settings ??
-    syncFetcher.data?.settings ??
-    loaderData.settings;
+  const shippingRates =
+    toggleFetcher.data?.shippingRates ??
+    syncFetcher.data?.shippingRates ??
+    loaderData.shippingRates;
 
-  const entries = Object.entries(settings);
+  const entries = shippingRates;
 
   return (
     <s-page heading="設定">
-      <s-section heading="配送方法">
+      <s-section heading="配送ケース（Shipping Rates）">
         <s-stack direction="inline" gap="base">
           <syncFetcher.Form method="post">
             <input type="hidden" name="_action" value="sync" />
             <s-button type="submit" {...(syncFetcher.state !== "idle"
                 ? { loading: true }
                 : {})}>
-              配送方法を同期
+              配送ケースを同期
             </s-button>
           </syncFetcher.Form>
           <s-text>Shop: {loaderData.shop}</s-text>
@@ -74,30 +71,29 @@ export default function SettingsPage() {
 
         {entries.length === 0 ? (
           <s-box padding="base" background="subdued" borderWidth="base">
-            <s-text>配送方法がありません。同期ボタンを押してください。</s-text>
+            <s-text>配送ケースがありません。同期ボタンを押してください。</s-text>
           </s-box>
         ) : (
           <s-stack direction="block" gap="base">
-            {entries.map(([key, value]) => (
+            {entries.map((value) => (
               <s-box
-                key={key}
+                key={value.shippingRateId}
                 padding="base"
                 background="subdued"
                 borderWidth="base"
                 borderRadius="base"
               >
                 <s-stack direction="inline" gap="base">
-                  <s-text>{value.title || key}</s-text>
+                  <s-text>{value.title || value.shippingRateId}</s-text>
                   <s-badge tone={value.enabled ? "success" : "warning"}>
                     {value.enabled ? "有効" : "無効"}
                   </s-badge>
-                  <s-text>
-                    {value.price ? `${value.price} ${value.currency ?? ""}` : ""}
-                  </s-text>
-                  <s-text>code: {key}</s-text>
+                  {value.zoneName ? <s-text>zone: {value.zoneName}</s-text> : null}
+                  <s-text>ID: {value.shippingRateId}</s-text>
+                  <s-text>handle: {value.handle}</s-text>
                   <toggleFetcher.Form method="post" style={{ marginLeft: "auto" }}>
                     <input type="hidden" name="_action" value="toggle" />
-                    <input type="hidden" name="key" value={key} />
+                    <input type="hidden" name="key" value={value.shippingRateId} />
                     <input
                       type="hidden"
                       name="enabled"
