@@ -1,6 +1,7 @@
 import {useEffect, useMemo, useState} from "react";
 import type {ActionFunctionArgs, LoaderFunctionArgs} from "react-router";
 import {Form, redirect, useActionData, useLoaderData, useNavigation} from "react-router";
+import type {AdminApiContext} from "@shopify/shopify-app-react-router/server";
 
 import prisma from "../db.server";
 import {authenticate} from "../shopify.server";
@@ -15,10 +16,18 @@ type ProductRule = {
   days: number;
 };
 
+type ProductSummary = {
+  id: string;
+  title: string;
+  imageUrl: string | null;
+};
+
+type ProductRuleWithProducts = ProductRule & {products: ProductSummary[]};
+
 type LoaderData = {
   rate: ShippingRateEntry;
   base: {id: string; days: number} | null;
-  productRules: ProductRule[];
+  productRules: ProductRuleWithProducts[];
   flashMessage: {text: string; tone: "success" | "critical"} | null;
 };
 
@@ -39,16 +48,113 @@ const parseTargetIds = (value: string | null): string[] => {
   return [value].filter(Boolean);
 };
 
-const serializePayload = (rateId: string, baseDays: string, baseId: string | null, productRules: ProductRule[]) => {
+const chunkArray = <T,>(items: T[], size: number): T[][] => {
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
+};
+
+const fetchProductSummaries = async (
+  admin: AdminApiContext,
+  ids: string[],
+): Promise<Map<string, ProductSummary>> => {
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+  const map = new Map<string, ProductSummary>();
+
+  if (uniqueIds.length === 0) return map;
+
+  const chunks = chunkArray(uniqueIds, 20);
+
+  for (const chunk of chunks) {
+    try {
+      const response = await admin.graphql(
+        `#graphql
+        query ProductSummaries($ids: [ID!]!) {
+          nodes(ids: $ids) {
+            __typename
+            ... on Product {
+              id
+              title
+              featuredImage { url altText }
+              images(first: 1) { nodes { url altText } }
+            }
+          }
+        }
+        `,
+        {variables: {ids: chunk}},
+      );
+
+      const json = await response.json();
+      const nodes = (json?.data?.nodes ?? []) as any[];
+
+      nodes.forEach((node) => {
+        if (!node || node.__typename !== "Product" || !node.id) return;
+
+        const primaryImage =
+          node.featuredImage?.url ??
+          node.images?.nodes?.[0]?.url ??
+          null;
+
+        map.set(node.id, {
+          id: String(node.id),
+          title: node.title ?? "商品",
+          imageUrl: primaryImage ? String(primaryImage) : null,
+        });
+      });
+    } catch (error) {
+      console.error("Failed to fetch product summaries", error);
+    }
+  }
+
+  return map;
+};
+
+const selectionToProductSummary = (item: any): ProductSummary | null => {
+  if (!item) return null;
+
+  const id = item.id ?? item.admin_graphql_api_id;
+  if (!id) return null;
+
+  const title = item.title ?? "商品";
+  const imageCandidate =
+    item.featuredMedia?.preview_image?.src ??
+    item.featured_media?.preview_image?.src ??
+    item.featuredImage?.originalSrc ??
+    item.featured_image?.originalSrc ??
+    item.image?.originalSrc ??
+    item.images?.[0]?.originalSrc ??
+    item.featuredImage?.url ??
+    item.images?.[0]?.url ??
+    null;
+
+  return {
+    id: String(id),
+    title: String(title),
+    imageUrl: imageCandidate ? String(imageCandidate) : null,
+  };
+};
+
+const serializePayload = (
+  rateId: string,
+  baseDays: string,
+  baseId: string | null,
+  productRules: Array<ProductRule | ProductRuleWithProducts>,
+) => {
   return JSON.stringify({
     rateId,
     base: {id: baseId, days: baseDays},
-    productRules,
+    productRules: productRules.map((rule) => ({
+      id: rule.id,
+      productIds: rule.productIds,
+      days: rule.days,
+    })),
   });
 };
 
 export const loader = async ({request, params}: LoaderFunctionArgs) => {
-  const {session} = await authenticate.admin(request);
+  const {session, admin} = await authenticate.admin(request);
   const rateId = params.rateId ?? "";
   const url = new URL(request.url);
   const flashText = url.searchParams.get("message");
@@ -78,11 +184,11 @@ export const loader = async ({request, params}: LoaderFunctionArgs) => {
     rates.find((r) => r.shippingRateId === rateId) ??
     (dbRate
       ? {
-          shippingRateId: dbRate.shippingRateId,
-          handle: dbRate.handle,
-          title: dbRate.title,
-          zoneName: dbRate.zoneName,
-        }
+        shippingRateId: dbRate.shippingRateId,
+        handle: dbRate.handle,
+        title: dbRate.title,
+        zoneName: dbRate.zoneName,
+      }
       : null);
   if (!rate) {
     throw new Response("Not found", {status: 404});
@@ -101,13 +207,36 @@ export const loader = async ({request, params}: LoaderFunctionArgs) => {
     (rule) => rule.targetType === "all" && matchesRate(rule.shippingRateIds),
   );
 
-  const productRules: ProductRule[] = rules
+  const productRulePayloads: ProductRule[] = rules
     .filter((rule) => rule.targetType === "product" && matchesRate(rule.shippingRateIds))
     .map((rule) => ({
       id: rule.id,
       productIds: parseTargetIds(rule.targetId),
       days: rule.days,
     }));
+
+  const allProductIds = Array.from(
+    new Set(productRulePayloads.flatMap((rule) => rule.productIds)),
+  );
+
+  const productSummaryMap =
+    allProductIds.length > 0
+      ? await fetchProductSummaries(admin, allProductIds)
+      : new Map<string, ProductSummary>();
+
+  const productRules: ProductRuleWithProducts[] = productRulePayloads.map(
+    (rule) => ({
+      ...rule,
+      products: rule.productIds.map(
+        (id) =>
+          productSummaryMap.get(id) ?? {
+            id,
+            title: "商品",
+            imageUrl: null,
+          },
+      ),
+    }),
+  );
 
   return {
     rate,
@@ -239,43 +368,115 @@ export const action = async ({request, params}: ActionFunctionArgs) => {
   return redirect(`/app/rules/${rateId}?message=${encodeURIComponent("保存しました")}&tone=success`);
 };
 
-function ProductPickerTags({productIds}: {productIds: string[]}) {
-  if (productIds.length === 0) {
+function ProductPreviewPills({products}: {products: ProductSummary[]}) {
+  if (products.length === 0) {
     return <s-text tone="subdued">商品が未選択です</s-text>;
   }
+
   return (
-    <s-stack direction="inline" gap="tight" alignment="center" wrap>
-      {productIds.map((id) => (
-        <s-box key={id} padding="tight" borderWidth="base" borderRadius="base">
-          <s-text size="sm">{id}</s-text>
-        </s-box>
-      ))}
-    </s-stack>
+    <div style={{maxWidth: "100%", overflowX: "auto"}}>
+      <s-stack
+        as="ul"
+        direction="inline"
+        gap="tight"
+        wrap="nowrap"
+        alignment="center"
+        style={{padding: 0, margin: 0, listStyle: "none"}}
+      >
+        {products.map((product) => (
+          <li key={product.id} style={{minWidth: 0}}>
+            <s-box
+              padding="small-100"
+              background="base"
+              borderWidth="base"
+              borderRadius="large"
+            >
+              <s-stack direction="inline" gap="tight" alignment="center">
+                {/* サムネイル */}
+                {product.imageUrl ? (
+                  <img
+                    src={product.imageUrl}
+                    alt={product.title || "商品"}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      objectFit: "cover",
+                      borderRadius: 6,
+                    }}
+                  />
+                ) : (
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 6,
+                      background: "#F6F6F7",
+                    }}
+                  />
+                )}
+
+                {/* タイトル（1行で省略） */}
+                <s-text
+                  as="span"
+                  variant="bodySm"
+                  tone="base"
+                  style={{
+                    whiteSpace: "nowrap",
+                    textOverflow: "ellipsis",
+                    overflow: "hidden",
+                    maxWidth: 180,
+                  }}
+                >
+                  {product.title || "商品"}
+                </s-text>
+              </s-stack>
+            </s-box>
+          </li>
+        ))}
+      </s-stack>
+    </div>
   );
 }
 
-type EditableProductRule = ProductRule & {clientId: string};
+
+type EditableProductRule = ProductRuleWithProducts & {
+  clientId: string;
+  mode: "edit" | "summary";
+};
 
 export default function RuleDetailPage() {
   const {rate, base, productRules, flashMessage} = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
   const navigation = useNavigation();
   const [baseDays, setBaseDays] = useState<string>(base ? String(base.days) : "1");
-  const [productRows, setProductRows] = useState<EditableProductRule[]>(
-    productRules.map((rule, idx) => ({
-      ...rule,
-      clientId: rule.id ?? `existing-${idx}`,
-    })),
+
+  const withProductsForIds = (productIds: string[], products: ProductSummary[]) => {
+    const productMap = new Map(products.map((product) => [product.id, product]));
+    return productIds.map(
+      (id) =>
+        productMap.get(id) ?? {
+          id,
+          title: "商品",
+          imageUrl: null,
+        },
+    );
+  };
+
+  const hydrateRow = (rule: ProductRuleWithProducts, idx: number): EditableProductRule => ({
+    ...rule,
+    products: withProductsForIds(rule.productIds, rule.products ?? []),
+    clientId: rule.id ?? `existing-${idx}`,
+    mode: rule.id ? "summary" : "edit",
+  });
+
+  const [productRows, setProductRows] = useState<EditableProductRule[]>(() =>
+    productRules.map((rule, idx) => hydrateRow(rule, idx)),
   );
 
   useEffect(() => {
     setBaseDays(base ? String(base.days) : "1");
-    setProductRows(
-      productRules.map((rule, idx) => ({
-        ...rule,
-        clientId: rule.id ?? `existing-${idx}`,
-      })),
-    );
+    setProductRows(productRules.map((rule, idx) => hydrateRow(rule, idx)));
   }, [base?.days, base?.id, productRules]);
 
   const isSubmitting = navigation.state !== "idle";
@@ -298,6 +499,11 @@ export default function RuleDetailPage() {
         initialSelectionIds: productRows[index]?.productIds?.map((id) => ({id})),
       });
       const selection = result?.selection ?? [];
+      const summaries = (selection as any[])
+        .map((item) => selectionToProductSummary(item))
+        .filter(Boolean) as ProductSummary[];
+      const selectionMap = new Map(summaries.map((item) => [item.id, item]));
+
       const ids = Array.from(
         new Set(
           (selection as any[])
@@ -307,7 +513,17 @@ export default function RuleDetailPage() {
       ).map(String);
       if (ids.length === 0) return;
       setProductRows((prev) =>
-        prev.map((row, idx) => (idx === index ? {...row, productIds: ids} : row)),
+        prev.map((row, idx) => {
+          if (idx !== index) return row;
+          const mergedProducts = ids.map(
+            (id) => selectionMap.get(id) ?? row.products.find((p) => p.id === id) ?? {id, title: "商品", imageUrl: null},
+          );
+          return {
+            ...row,
+            productIds: ids,
+            products: mergedProducts,
+          };
+        }),
       );
     } catch (error) {
       console.error("product picker failed", error);
@@ -317,7 +533,14 @@ export default function RuleDetailPage() {
   const addProductRule = () => {
     setProductRows((prev) => [
       ...prev,
-      {id: null, clientId: `new-${Date.now()}`, productIds: [], days: 1},
+      {
+        id: null,
+        clientId: `new-${Date.now()}`,
+        productIds: [],
+        products: [],
+        days: 1,
+        mode: "edit",
+      },
     ]);
   };
 
@@ -336,95 +559,153 @@ export default function RuleDetailPage() {
 
   return (
     <s-page heading={`出荷ルール詳細 / ${rate.title}`}>
-      <Form method="post">
-        <input type="hidden" name="_action" value="save_all" />
-        <input type="hidden" name="payload" value={serializedPayload} readOnly />
+      <s-link slot="breadcrumb-actions" href="/app/rules">
+        一覧に戻る
+      </s-link>
+      <s-button
+        slot="primary-action"
+        type="submit"
+        form="rule-form"
+        {...(isSubmitting ? {loading: true} : {})}
+      >
+        保存
+      </s-button>
 
-        <s-stack direction="inline" gap="tight" alignment="center">
-          <s-link href="/app/rules">一覧に戻る</s-link>
-          <s-button type="submit" {...(isSubmitting ? {loading: true} : {})}>
-            保存
-          </s-button>
-        </s-stack>
+      <s-section heading={`商品別設定（${productRows.length}件）`}>
+        {productRows.length === 0 ? (
+          <s-text tone="subdued">商品別設定がありません。</s-text>
+        ) : (
+          <s-stack gap="tight">
+            {productRows.map((row, index) => (
+              <s-box
+                key={row.clientId}
+                padding="base"
+                borderWidth="base"
+                borderRadius="base"
+                background="surface"
+              >
+                {row.mode === "summary" ? (
+                  // ▼ サマリ表示：1カード内で縦並び＋最後だけボタン横並び
+                  <s-stack direction="block" gap="tight">
+                    {/* 商品 */}
+                    <s-stack direction="block" gap="extra-tight">
+                      <s-text tone="subdued" variant="bodySm">
+                        商品
+                      </s-text>
+                      <ProductPreviewPills
+                        products={withProductsForIds(row.productIds, row.products)}
+                      />
+                    </s-stack>
 
-        {bannerText ? (
-          <s-text tone={bannerTone}>
-            {bannerText}
-          </s-text>
-        ) : null}
+                    {/* 出荷リードタイム */}
+                    <s-stack direction="block" gap="extra-tight">
+                      <s-text tone="subdued" variant="bodySm">
+                        出荷リードタイム（日）
+                      </s-text>
+                      <s-text variant="bodyMd">{row.days} 日</s-text>
+                    </s-stack>
 
-        <s-stack direction="block" gap="base">
-          <s-box padding="base" borderWidth="base" borderRadius="base" background="surface">
-            <s-stack direction="block" gap="tight">
-              <s-text weight="semibold">基本設定（全商品）</s-text>
-              <label>
-                <s-text tone="subdued">出荷リードタイム（日）</s-text>
-                <input
-                  type="number"
-                  min={1}
-                  value={baseDays}
-                  onChange={(e) => setBaseDays(e.target.value || "1")}
-                  style={{width: "120px", marginTop: "4px"}}
-                  name="baseDaysInput"
-                />
-              </label>
-              <s-text tone="subdued">入力後、ページ上部の「保存」で反映します。</s-text>
-            </s-stack>
-          </s-box>
-
-          <s-box padding="base" borderWidth="base" borderRadius="base" background="surface">
-            <s-stack direction="block" gap="tight">
-              <s-stack direction="inline" alignment="center" gap="tight">
-                <s-text weight="semibold">商品別設定（{productRows.length} 件）</s-text>
-                <s-button type="button" variant="secondary" onClick={addProductRule}>
-                  商品別設定を追加
-                </s-button>
-              </s-stack>
-              {productRows.length === 0 ? (
-                <s-text tone="subdued">商品別設定がありません。</s-text>
-              ) : (
-                productRows.map((row, index) => (
-                  <s-box
-                    key={row.clientId}
-                    padding="base"
-                    borderWidth="base"
-                    borderRadius="base"
-                    background="subdued"
-                  >
-                    <s-stack direction="block" gap="tight">
-                      <s-stack direction="inline" gap="tight" alignment="center">
-                        <s-text tone="subdued">商品</s-text>
-                        <ProductPickerTags productIds={row.productIds} />
-                        <s-button type="button" variant="tertiary" onClick={() => openProductPicker(index)}>
-                          商品を選択
-                        </s-button>
-                      </s-stack>
-                      <label>
-                        <s-text tone="subdued">出荷リードタイム（日）</s-text>
-                        <input
-                          type="number"
-                          min={1}
-                          value={row.days}
-                          onChange={(e) =>
-                            updateProductRule(row.clientId, {
-                              days: Number.parseInt(e.target.value || "1", 10),
-                            })
-                          }
-                          style={{width: "120px", marginTop: "4px"}}
-                          name={`productDays-${row.clientId}`}
-                        />
-                      </label>
-                      <s-button type="button" variant="tertiary" tone="critical" onClick={() => removeProductRule(row.clientId)}>
+                    {/* アクション（横並び） */}
+                    <s-stack
+                      direction="inline"
+                      gap="tight"
+                      alignment="center"
+                      style={{justifyContent: "flex-end"}}
+                    >
+                      <s-button
+                        type="button"
+                        variant="secondary"
+                        onClick={() =>
+                          updateProductRule(row.clientId, {mode: "edit"})
+                        }
+                      >
+                        編集
+                      </s-button>
+                      <s-button
+                        type="button"
+                        variant="tertiary"
+                        tone="critical"
+                        onClick={() => removeProductRule(row.clientId)}
+                      >
                         削除
                       </s-button>
                     </s-stack>
-                  </s-box>
-                ))
-              )}
-            </s-stack>
-          </s-box>
-        </s-stack>
-      </Form>
+                  </s-stack>
+                ) : (
+                  // ▼ 編集モード：商品選択・日数・アクションを縦並び、ボタンだけ横並び
+                  <s-stack direction="block" gap="tight">
+                    {/* 商品選択 */}
+                    <s-stack direction="block" gap="extra-tight">
+                      <s-text tone="subdued" variant="bodySm">
+                        商品
+                      </s-text>
+                      <ProductPreviewPills
+                        products={withProductsForIds(row.productIds, row.products)}
+                      />
+                      <s-button
+                        type="button"
+                        variant="tertiary"
+                        onClick={() => openProductPicker(index)}
+                      >
+                        商品を選択
+                      </s-button>
+                    </s-stack>
+
+                    {/* 出荷リードタイム */}
+                    <s-stack direction="block" gap="extra-tight" style={{maxWidth: 240}}>
+                      <s-text tone="subdued" variant="bodySm">
+                        出荷リードタイム（日）
+                      </s-text>
+                      <s-text-field
+                        name={`productDays-${row.clientId}`}
+                        autocomplete="off"
+                        value={String(row.days)}
+                        onInput={(event: any) => {
+                          const value = event.target.value || "1";
+                          updateProductRule(row.clientId, {
+                            days: Number.parseInt(value, 10),
+                          });
+                        }}
+                      />
+                    </s-stack>
+
+                    {/* アクション（横並び） */}
+                    <s-stack
+                      direction="inline"
+                      gap="tight"
+                      alignment="center"
+                      style={{justifyContent: "flex-end"}}
+                    >
+                      <s-button
+                        type="button"
+                        variant="primary"
+                        onClick={() =>
+                          updateProductRule(row.clientId, {mode: "summary"})
+                        }
+                      >
+                        完了
+                      </s-button>
+                      <s-button
+                        type="button"
+                        variant="tertiary"
+                        tone="critical"
+                        onClick={() => removeProductRule(row.clientId)}
+                      >
+                        削除
+                      </s-button>
+                    </s-stack>
+                  </s-stack>
+                )}
+              </s-box>
+            ))}
+          </s-stack>
+        )}
+
+        <s-button type="button" variant="secondary" onClick={addProductRule}>
+          商品別設定を追加
+        </s-button>
+      </s-section>
+
     </s-page>
   );
 }
