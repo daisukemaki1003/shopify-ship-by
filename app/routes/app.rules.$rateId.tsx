@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useState} from "react";
 import type React from "react";
 import type {ActionFunctionArgs, LoaderFunctionArgs} from "react-router";
-import {Form, redirect, useActionData, useLoaderData, useNavigation} from "react-router";
+import {Form, redirect, useActionData, useLoaderData} from "react-router";
 import type {AdminApiContext} from "@shopify/shopify-app-react-router/server";
 
 import prisma from "../db.server";
@@ -416,6 +416,7 @@ function ProductPreviewPills({
   onClick?: () => void;
 }) {
   const hasProducts = products.length > 0;
+  const [isHovered, setIsHovered] = useState(false);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!onClick) return;
@@ -431,14 +432,19 @@ function ProductPreviewPills({
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
       onKeyDown={handleKeyDown}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         width: "100%",
+        height: "2rem",
         padding: "0.125rem",
-        borderRadius: "0.25rem",
-        border: "1px solid var(--p-color-border, #C9CCD5)",
-        background: "var(--p-color-bg, #FFFFFF)",
+        borderRadius: "0.5rem",
+        border: `1px solid ${isHovered ? "#616161" : "#B7B7B7"}`,
+        background: isHovered ? "#FAF9FA" : "transparent",
         cursor: onClick ? "pointer" : "default",
         boxSizing: "border-box",
+        display: "flex",
+        alignItems: "center",
       }}
     >
       {hasProducts ? (
@@ -488,15 +494,7 @@ function ProductPreviewPills({
 
               {/* タイトル（1行省略） */}
               <s-text
-                as="span"
-                variant="bodySm"
-                tone="base"
-                style={{
-                  whiteSpace: "nowrap",
-                  textOverflow: "ellipsis",
-                  overflow: "hidden",
-                  maxWidth: 160,
-                }}
+                tone="neutral"
               >
                 {product.title || "商品"}
               </s-text>
@@ -505,8 +503,10 @@ function ProductPreviewPills({
         </div>
       ) : (
         // ▼ 未選択状態（フィールド内に灰色文字）
-        <s-text variant="bodySm" tone="subdued">
-          商品を選択
+        <s-text tone="neutral">
+          <div style={{padding: "0 0.5rem"}}>
+            商品を選択
+          </div>
         </s-text>
       )}
     </div>
@@ -523,7 +523,6 @@ type EditableProductRule = ProductRuleWithProducts & {
 export default function RuleDetailPage() {
   const {rate, base, productRules, flashMessage} = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
-  const navigation = useNavigation();
   const [baseDays, setBaseDays] = useState<string>(base ? String(base.days) : "1");
 
   const withProductsForIds = (productIds: string[], products: ProductSummary[]) => {
@@ -552,8 +551,6 @@ export default function RuleDetailPage() {
     setBaseDays(base ? String(base.days) : "1");
     setProductRows(productRules.map((rule, idx) => hydrateRow(rule, idx)));
   }, [base?.days, base?.id, productRules]);
-
-  const isSubmitting = navigation.state !== "idle";
 
   const serializedPayload = useMemo(
     () => serializePayload(rate.shippingRateId, baseDays, base?.id ?? null, productRows),
@@ -638,90 +635,107 @@ export default function RuleDetailPage() {
   const bannerTone = actionData ? "critical" : flashMessage?.tone ?? "success";
 
   return (
-    <s-page heading={`出荷ルール詳細 / ${rate.title}`}>
-      <s-link slot="breadcrumb-actions" href="/app/rules">
-        一覧に戻る
-      </s-link>
-      <s-button
-        slot="primary-action"
-        type="submit"
-        form="rule-form"
-        {...(isSubmitting ? {loading: true} : {})}
-      >
-        保存
-      </s-button>
+    <Form method="post" id="rule-form" data-save-bar>
+      <input type="hidden" name="_action" value="save_all" />
+      <input type="hidden" name="payload" value={serializedPayload} />
 
-      <s-section heading={`商品別設定（${productRows.length}件）`}>
-        {productRows.length === 0 ? (
-          <s-text tone="subdued">商品別設定がありません。</s-text>
-        ) : (
-          <s-stack gap="tight">
-            {productRows.map((row, index) => (
-              <s-box
-                key={row.clientId}
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="surface"
-              >
-                {/* 編集モードのみ表示：商品選択・日数・アクションを縦並び、ボタンだけ横並び */}
-                <s-stack direction="block" gap="tight">
-                  {/* 商品選択 */}
-                  <s-stack direction="block" gap="extra-tight">
-                    <s-text tone="subdued" variant="bodySm">
-                      商品
-                    </s-text>
-                    <ProductPreviewPills
-                      products={withProductsForIds(row.productIds, row.products)}
-                      onClick={() => openProductPicker(index)}
-                    />
-                  </s-stack>
+      <s-page heading={`出荷ルール詳細 / ${rate.title}`}>
+        <s-link slot="breadcrumb-actions" href="/app/rules">
+          一覧に戻る
+        </s-link>
 
-                  {/* 出荷リードタイム */}
-                  <s-stack direction="block" gap="extra-tight" style={{maxWidth: 240}}>
-                    <s-text tone="subdued" variant="bodySm">
-                      出荷リードタイム（日）
-                    </s-text>
-                    <s-text-field
-                      name={`productDays-${row.clientId}`}
-                      autocomplete="off"
-                      value={String(row.days)}
-                      onInput={(event: any) => {
-                        const value = event.target.value || "1";
-                        updateProductRule(row.clientId, {
-                          days: Number.parseInt(value, 10),
-                        });
-                      }}
-                    />
-                  </s-stack>
+        {bannerText ? (
+          <s-banner tone={bannerTone}>
+            <p>{bannerText}</p>
+          </s-banner>
+        ) : null}
 
-                  {/* アクション（横並び） */}
-                  <s-stack
-                    direction="inline"
-                    gap="tight"
-                    alignment="center"
-                    style={{justifyContent: "flex-end"}}
-                  >
-                    <s-button
-                      type="button"
-                      variant="tertiary"
-                      tone="critical"
-                      onClick={() => removeProductRule(row.clientId)}
-                    >
-                      削除
-                    </s-button>
-                  </s-stack>
-                </s-stack>
-              </s-box>
-            ))}
+        <s-section heading="基本設定">
+          <s-stack direction="block" gap="none">
+            <s-text tone="neutral">
+              出荷リードタイム（日）
+            </s-text>
+            <s-text-field
+              name="baseDays"
+              autocomplete="off"
+              value={baseDays}
+              onInput={(event: any) => {
+                setBaseDays(event.target.value || "1");
+              }}
+            />
           </s-stack>
-        )}
+        </s-section>
 
-        <s-button type="button" variant="secondary" onClick={addProductRule}>
-          商品別設定を追加
-        </s-button>
-      </s-section>
+        <s-section heading={`商品別設定（${productRows.length}件）`}>
+          <s-stack gap="small">
+            {productRows.length === 0 ? (
+              <s-text tone="neutral">商品別設定がありません。</s-text>
+            ) : (
+              <s-stack gap="small">
+                {productRows.map((row, index) => (
+                  <s-box
+                    key={row.clientId}
+                    padding="base"
+                    borderWidth="base"
+                    borderRadius="base"
+                  >
+                    {/* 編集モードのみ表示：商品選択・日数・アクションを縦並び、ボタンだけ横並び */}
+                    <s-stack direction="block" gap="small">
+                      {/* 商品選択 */}
+                      <s-stack direction="block" gap="none">
+                        <s-text tone="neutral">
+                          商品
+                        </s-text>
+                        <ProductPreviewPills
+                          products={withProductsForIds(row.productIds, row.products)}
+                          onClick={() => openProductPicker(index)}
+                        />
+                      </s-stack>
 
-    </s-page>
+                      {/* 出荷リードタイム */}
+                      <s-stack direction="block" gap="none">
+                        <s-text tone="neutral">
+                          出荷リードタイム（日）
+                        </s-text>
+                        <s-text-field
+                          name={`productDays-${row.clientId}`}
+                          autocomplete="off"
+                          value={String(row.days)}
+                          onInput={(event: any) => {
+                            const value = event.target.value || "1";
+                            updateProductRule(row.clientId, {
+                              days: Number.parseInt(value, 10),
+                            });
+                          }}
+                        />
+                      </s-stack>
+
+                      {/* アクション（横並び） */}
+                      <s-stack
+                        direction="inline"
+                        gap="small"
+                      >
+                        <s-button
+                          type="button"
+                          variant="tertiary"
+                          tone="critical"
+                          onClick={() => removeProductRule(row.clientId)}
+                        >
+                          削除
+                        </s-button>
+                      </s-stack>
+                    </s-stack>
+                  </s-box>
+                ))}
+              </s-stack>
+            )}
+
+            <s-button type="button" variant="secondary" onClick={addProductRule}>
+              商品別設定を追加
+            </s-button>
+          </s-stack>
+        </s-section>
+      </s-page>
+    </Form>
   );
 }
