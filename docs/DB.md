@@ -65,20 +65,42 @@
 ---
 
 ## Rule（出荷ルール）
-目的: 出荷日数を決めるルール（商品/全商品 × Shipping Rate）。
+目的: 出荷日数を決めるルール（商品/全商品）。配送ケースとの紐付けは中間テーブルで管理。
 
 | カラム | 型 | 説明 |
 | --- | --- | --- |
 | id | String (PK, cuid) | ルールID |
 | shopId | String (idx) | 店舗ID |
 | targetType | RuleTargetType | `product` / `all` |
-| targetId | String? | productId（全商品は null） |
-| shippingRateIds | Json | Shipping Rate ID 配列（空配列なら配送ケース問わず適用） |
+| targetId | String? | productId 配列を文字列化（全商品は null）※将来的に `String[]` などへ正規化検討 |
 | days | Int | 出荷日数（到着日の何日前に発送するか） |
-| enabled | Boolean | ルール有効フラグ |
 | createdAt / updatedAt | DateTime | timestamps |
 
 インデックス: `shopId`
+
+**構造上のポイント**
+- 配送ケースとの関連は `RuleShippingRate` 中間テーブルで表現（1 Rule : N ShippingRate）。
+- ルールの適用範囲（商品/全商品）は `targetType` と `targetId` で判定。商品IDの正規化は今後の改善余地。
+
+---
+
+## RuleShippingRate（ルールと配送ケースの中間テーブル）
+目的: ルールと ShippingRate を正規化して関連付け、参照整合性を確保する。
+
+| カラム | 型 | 説明 |
+| --- | --- | --- |
+| id | String (PK, cuid) | 中間レコードID |
+| shopId | String (idx) | 店舗ID |
+| ruleId | String | Rule への外部キー |
+| shippingRateId | String | ShippingRate の business ID |
+| shippingRateShopId | String | ShippingRate の shopId（複合FK用、通常は `shopId` と同一） |
+| createdAt / updatedAt | DateTime | timestamps |
+
+インデックス: `shopId`, `ruleId`, `shippingRateId`, `shopId + ruleId + shippingRateId (unique)` を想定
+
+**運用イメージ**
+- UI: 「配送ケース詳細」画面でルールを編集 → サーバーは `Rule` を作成/更新し、紐付く `RuleShippingRate` を 1 件追加。
+- 複数配送ケースへ同一ルールを共有したい場合も、中間テーブルを追加するだけで対応可能。
 
 ---
 
@@ -93,7 +115,6 @@
 | title | String | 表示名 |
 | handle | String | code / handle |
 | zoneName | String? | 所属配送ゾーン |
-| enabled | Boolean | ルール選択時の有効フラグ |
 | syncedAt | DateTime | 同期日時 |
 | createdAt / updatedAt | DateTime | timestamps |
 

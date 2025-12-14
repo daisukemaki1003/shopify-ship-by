@@ -36,19 +36,12 @@ export const loader = async ({ request }: { request: Request }) => {
   const url = new URL(request.url);
   const flashText = url.searchParams.get("message");
   const flashTone = url.searchParams.get("tone") === "critical" ? "critical" : "success";
-  const [rates, rules] = await Promise.all([
+  const [rates, links] = await Promise.all([
     getShippingRates(session.shop),
-    prisma.rule.findMany({
+    prisma.ruleShippingRate.findMany({
       where: { shopId: session.shop },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        targetType: true,
-        targetId: true,
-        shippingRateIds: true,
-        days: true,
-        updatedAt: true,
-      },
+      include: { rule: true },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
@@ -57,13 +50,12 @@ export const loader = async ({ request }: { request: Request }) => {
     map.set(rate.shippingRateId, toSummary(rate));
   });
 
-  rules.forEach((rule) => {
-    const rateId = Array.isArray(rule.shippingRateIds)
-      ? (rule.shippingRateIds[0] as string | undefined)
-      : undefined;
-    if (!rateId) return;
+  links.forEach((link) => {
+    const rateId = link.shippingRateId;
     const summary = map.get(rateId);
     if (!summary) return;
+
+    const rule = link.rule;
 
     if (rule.targetType === "all") {
       if (!summary.baseUpdatedAt || rule.updatedAt > summary.baseUpdatedAt) {

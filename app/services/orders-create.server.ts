@@ -1,4 +1,4 @@
-import type { Holiday, Rule, ShopSetting } from "@prisma/client";
+import type { Holiday, Rule, RuleShippingRate, ShopSetting } from "@prisma/client";
 
 import prisma from "../db.server";
 import { apiVersion } from "../shopify.server";
@@ -38,15 +38,29 @@ const extractShopSetting = (setting: ShopSetting | null): ShopSettingLike => ({
 const extractHoliday = (holiday: Holiday | null): HolidayLike =>
   holiday ?? { holidays: [], weeklyHolidays: [] };
 
-const extractRules = (rules: Rule[]): RuleLike[] =>
-  rules.map((rule) => ({
-    id: rule.id,
-    shopId: rule.shopId,
-    targetType: rule.targetType,
-    targetId: rule.targetId,
-    shippingRateIds: rule.shippingRateIds,
-    days: rule.days,
-  }));
+const extractRules = (links: Array<RuleShippingRate & { rule: Rule }>): RuleLike[] => {
+  const map = new Map<string, RuleLike>();
+
+  links.forEach((link) => {
+    const { rule } = link;
+    const existing = map.get(rule.id);
+    if (existing) {
+      existing.shippingRateIds.push(link.shippingRateId);
+      return;
+    }
+
+    map.set(rule.id, {
+      id: rule.id,
+      shopId: rule.shopId,
+      targetType: rule.targetType,
+      targetId: rule.targetId,
+      shippingRateIds: [link.shippingRateId],
+      days: rule.days,
+    });
+  });
+
+  return Array.from(map.values());
+};
 
 const formatWithTokens = (template: string | null | undefined, date: Date) => {
   const iso = toISODate(date);
@@ -248,15 +262,18 @@ export const handleOrdersCreate = async (shop: string, payload: unknown) => {
       return;
     }
 
-    const [setting, holiday, rules] = await Promise.all([
+    const [setting, holiday, ruleLinks] = await Promise.all([
       prisma.shopSetting.findUnique({ where: { shopId: shop } }),
       prisma.holiday.findUnique({ where: { shopId: shop } }),
-      prisma.rule.findMany({ where: { shopId: shop } }),
+      prisma.ruleShippingRate.findMany({
+        where: { shopId: shop },
+        include: { rule: true },
+      }),
     ]);
 
     const calcResult = calculateShipBy({
       order: coerceOrder(payload),
-      rules: extractRules(rules),
+      rules: extractRules(ruleLinks),
       shopSetting: extractShopSetting(setting),
       holiday: extractHoliday(holiday),
     });

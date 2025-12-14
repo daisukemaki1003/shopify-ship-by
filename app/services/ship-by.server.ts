@@ -20,7 +20,7 @@ export type RuleLike = {
   shopId?: string;
   targetType: RuleTargetType;
   targetId: string | null;
-  shippingRateIds: unknown;
+  shippingRateIds: string[];
   days: number;
 };
 
@@ -255,11 +255,8 @@ const getProductIds = (order: ShopifyOrderLike) =>
     .map((item) => (item?.product_id != null ? String(item.product_id) : null))
     .filter((id): id is string => Boolean(id));
 
-const ensureArray = (value: unknown): string[] =>
-  Array.isArray(value) ? value.map((v) => String(v)) : [];
-
 const normalizeIdList = (value: unknown) =>
-  ensureArray(value).map((v) => normalizeKey(String(v)));
+  (Array.isArray(value) ? value : []).map((v) => normalizeKey(String(v)));
 
 export const pickAdoptedRule = (
   params: {

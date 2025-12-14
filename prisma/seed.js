@@ -58,26 +58,67 @@ async function main() {
     },
   });
 
-  await prisma.rule.createMany({
-    skipDuplicates: true,
-    data: [
-      {
-        id: "rule-all",
+  const ruleAll = await prisma.rule.upsert({
+    where: { id: "rule-all" },
+    update: { days: 2, targetType: "all", targetId: null, shopId },
+    create: {
+      id: "rule-all",
+      shopId,
+      targetType: "all",
+      targetId: null,
+      days: 2,
+    },
+  });
+
+  await prisma.ruleShippingRate.upsert({
+    where: {
+      shopId_ruleId_shippingRateId: {
         shopId,
-        targetType: "all",
-        targetId: null,
-        shippingRateIds: ["sr_yamato_cool"],
-        days: 2,
+        ruleId: ruleAll.id,
+        shippingRateId: "sr_yamato_cool",
       },
-      {
-        id: "rule-shipping-cool",
+    },
+    update: {},
+    create: {
+      shopId,
+      ruleId: ruleAll.id,
+      shippingRateId: "sr_yamato_cool",
+      shippingRateShopId: shopId,
+    },
+  });
+
+  const ruleProduct = await prisma.rule.upsert({
+    where: { id: "rule-shipping-cool" },
+    update: {
+      days: 3,
+      targetType: "product",
+      targetId: "sample-product-id",
+      shopId,
+    },
+    create: {
+      id: "rule-shipping-cool",
+      shopId,
+      targetType: "product",
+      targetId: "sample-product-id",
+      days: 3,
+    },
+  });
+
+  await prisma.ruleShippingRate.upsert({
+    where: {
+      shopId_ruleId_shippingRateId: {
         shopId,
-        targetType: "product",
-        targetId: "sample-product-id",
-        shippingRateIds: ["sr_yamato_cool"],
-        days: 3,
+        ruleId: ruleProduct.id,
+        shippingRateId: "sr_yamato_cool",
       },
-    ],
+    },
+    update: {},
+    create: {
+      shopId,
+      ruleId: ruleProduct.id,
+      shippingRateId: "sr_yamato_cool",
+      shippingRateShopId: shopId,
+    },
   });
 }
 

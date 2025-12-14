@@ -1,180 +1,41 @@
-import {useEffect, useMemo, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import type React from "react";
 import type {ActionFunctionArgs, LoaderFunctionArgs} from "react-router";
-import {Form, redirect, useActionData, useLoaderData} from "react-router";
-import type {AdminApiContext} from "@shopify/shopify-app-react-router/server";
+import {Form, redirect, useActionData, useBlocker, useLoaderData, useNavigate} from "react-router";
+import {useAppBridge} from "@shopify/app-bridge-react";
 
-import prisma from "../db.server";
 import {authenticate} from "../shopify.server";
 import {
-  getShippingRates,
-  type ShippingRateEntry,
-} from "../services/shipping-rates.server";
+  loadRuleDetail,
+  normalizeRulePayload,
+  persistRulePayload,
+  type RulePayload,
+  type RuleDetailData,
+} from "../services/rules.server";
+import {DEFAULT_BASE_DAYS} from "../utils/rules";
+import {
+  FALLBACK_PRODUCT_TITLE,
+  selectionToProductSummary,
+  toFallbackProduct,
+} from "../utils/products";
+import {parsePositiveInt} from "../utils/validation";
+import type {
+  ProductRule,
+  ProductRuleWithProducts,
+  ProductSummary,
+} from "../utils/rule-types";
 
-type ProductRule = {
-  id: string | null;
-  productIds: string[];
-  days: number;
-};
-
-type ProductSummary = {
-  id: string;
-  title: string;
-  imageUrl: string | null;
-};
-
-type ProductRuleWithProducts = ProductRule & {products: ProductSummary[]};
-
-type LoaderData = {
-  rate: ShippingRateEntry;
-  base: {id: string; days: number} | null;
-  productRules: ProductRuleWithProducts[];
+// 画面描画に必要なデータセット（flashMessageを付与）
+type LoaderData = RuleDetailData & {
   flashMessage: {text: string; tone: "success" | "critical"} | null;
 };
 
+// 保存処理の結果
 type ActionData =
   | {ok: true; message: string}
   | {ok: false; message: string};
 
-const parseTargetIds = (value: string | null): string[] => {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value);
-    if (Array.isArray(parsed)) {
-      return parsed.map((v) => String(v)).filter(Boolean);
-    }
-  } catch {
-    // fall through
-  }
-  return [value].filter(Boolean);
-};
-
-const chunkArray = <T,>(items: T[], size: number): T[][] => {
-  const result: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    result.push(items.slice(i, i + size));
-  }
-  return result;
-};
-
-const fetchProductSummaries = async (
-  admin: AdminApiContext,
-  ids: string[],
-): Promise<Map<string, ProductSummary>> => {
-  const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
-  const map = new Map<string, ProductSummary>();
-
-  if (uniqueIds.length === 0) return map;
-
-  const chunks = chunkArray(uniqueIds, 20);
-
-  for (const chunk of chunks) {
-    try {
-      const response = await admin.graphql(
-        `#graphql
-        query ProductSummaries($ids: [ID!]!) {
-          nodes(ids: $ids) {
-            __typename
-            ... on Product {
-              id
-              title
-              featuredImage { url altText }
-              images(first: 1) { nodes { url altText } }
-            }
-          }
-        }
-        `,
-        {variables: {ids: chunk}},
-      );
-
-      const json = await response.json();
-      const nodes = (json?.data?.nodes ?? []) as any[];
-
-      nodes.forEach((node) => {
-        if (!node || node.__typename !== "Product" || !node.id) return;
-
-        const primaryImage =
-          node.featuredImage?.url ??
-          node.images?.nodes?.[0]?.url ??
-          null;
-
-        map.set(node.id, {
-          id: String(node.id),
-          title: node.title ?? "商品",
-          imageUrl: primaryImage ? String(primaryImage) : null,
-        });
-      });
-    } catch (error) {
-      console.error("Failed to fetch product summaries", error);
-    }
-  }
-
-  return map;
-};
-
-const selectionToProductSummary = (item: any): ProductSummary | null => {
-  if (!item) return null;
-
-  const id = item.id ?? item.admin_graphql_api_id;
-  if (!id) return null;
-  // バリエーションは選択対象外
-  const idStr = String(id);
-  if (idStr.includes("ProductVariant")) return null;
-
-  const title = item.title ?? "商品";
-  const imageCandidate =
-    item.featuredMedia?.preview?.image?.url ??
-    item.featuredMedia?.preview?.image?.src ??
-    item.featuredMedia?.preview?.image?.originalSrc ??
-    item.featuredMedia?.preview_image?.url ??
-    item.featuredMedia?.preview_image?.src ??
-    item.featuredMedia?.preview_image?.originalSrc ??
-    item.featuredMedia?.preview_image?.transformedSrc ??
-    item.featured_media?.preview_image?.transformedSrc ??
-    item.featuredMedia?.thumbnail?.url ??
-    item.featuredMedia?.thumbnail?.src ??
-    item.featuredMedia?.thumbnail?.transformedSrc ??
-    item.media?.[0]?.preview?.image?.url ??
-    item.media?.[0]?.preview?.image?.src ??
-    item.media?.[0]?.preview?.image?.originalSrc ??
-    item.media?.[0]?.preview?.image?.transformedSrc ??
-    item.featuredImage?.url ??
-    item.featuredImage?.src ??
-    item.featuredImage?.originalSrc ??
-    item.featuredImage?.transformedSrc ??
-    item.featured_image?.url ??
-    item.featured_image?.src ??
-    item.featured_image?.originalSrc ??
-    item.featured_image?.transformedSrc ??
-    item.image?.url ??
-    item.image?.src ??
-    item.image?.originalSrc ??
-    item.image?.transformedSrc ??
-    item.images?.[0]?.url ??
-    item.images?.[0]?.src ??
-    item.images?.[0]?.originalSrc ??
-    item.images?.[0]?.transformedSrc ??
-    item.images?.nodes?.[0]?.url ??
-    item.images?.nodes?.[0]?.src ??
-    item.images?.nodes?.[0]?.originalSrc ??
-    item.images?.nodes?.[0]?.transformedSrc ??
-    item.images?.edges?.[0]?.node?.url ??
-    item.images?.edges?.[0]?.node?.src ??
-    item.images?.edges?.[0]?.node?.originalSrc ??
-    item.images?.edges?.[0]?.node?.transformedSrc ??
-    item.variants?.edges?.[0]?.node?.image?.url ??
-    item.variants?.edges?.[0]?.node?.image?.src ??
-    item.variants?.edges?.[0]?.node?.image?.originalSrc ??
-    item.variants?.edges?.[0]?.node?.image?.transformedSrc ??
-    null;
-
-  return {
-    id: String(id),
-    title: String(title),
-    imageUrl: imageCandidate ? String(imageCandidate) : null,
-  };
-};
-
+// バリデーション済みのペイロードをサーバーへ送るためにシリアライズ
 const serializePayload = (
   rateId: string,
   baseDays: string,
@@ -192,6 +53,7 @@ const serializePayload = (
   });
 };
 
+// 配送レートに紐づくルール・商品情報を取得する
 export const loader = async ({request, params}: LoaderFunctionArgs) => {
   const {session, admin} = await authenticate.admin(request);
   const rateId = params.rateId ?? "";
@@ -199,92 +61,19 @@ export const loader = async ({request, params}: LoaderFunctionArgs) => {
   const flashText = url.searchParams.get("message");
   const flashTone = url.searchParams.get("tone") === "critical" ? "critical" : "success";
 
-  const [rates, rules, dbRate] = await Promise.all([
-    getShippingRates(session.shop),
-    prisma.rule.findMany({
-      where: {shopId: session.shop},
-      orderBy: {updatedAt: "desc"},
-      select: {
-        id: true,
-        targetType: true,
-        targetId: true,
-        shippingRateIds: true,
-        days: true,
-        updatedAt: true,
-      },
-    }),
-    prisma.shippingRate.findFirst({
-      where: {shopId: session.shop, shippingRateId: rateId},
-      select: {shippingRateId: true, handle: true, title: true, zoneName: true},
-    }),
-  ]);
-
-  const rate =
-    rates.find((r) => r.shippingRateId === rateId) ??
-    (dbRate
-      ? {
-        shippingRateId: dbRate.shippingRateId,
-        handle: dbRate.handle,
-        title: dbRate.title,
-        zoneName: dbRate.zoneName,
-      }
-      : null);
-  if (!rate) {
-    throw new Response("Not found", {status: 404});
-  }
-
-  const matchesRate = (ruleRateIds: unknown) => {
-    if (Array.isArray(ruleRateIds)) {
-      const list = (ruleRateIds as unknown[]).map(String);
-      if (list.length === 0) return true;
-      return list.includes(rateId);
-    }
-    return false;
-  };
-
-  const baseRule = rules.find(
-    (rule) => rule.targetType === "all" && matchesRate(rule.shippingRateIds),
-  );
-
-  const productRulePayloads: ProductRule[] = rules
-    .filter((rule) => rule.targetType === "product" && matchesRate(rule.shippingRateIds))
-    .map((rule) => ({
-      id: rule.id,
-      productIds: parseTargetIds(rule.targetId),
-      days: rule.days,
-    }));
-
-  const allProductIds = Array.from(
-    new Set(productRulePayloads.flatMap((rule) => rule.productIds)),
-  );
-
-  const productSummaryMap =
-    allProductIds.length > 0
-      ? await fetchProductSummaries(admin, allProductIds)
-      : new Map<string, ProductSummary>();
-
-  const productRules: ProductRuleWithProducts[] = productRulePayloads.map(
-    (rule) => ({
-      ...rule,
-      products: rule.productIds.map(
-        (id) =>
-          productSummaryMap.get(id) ?? {
-            id,
-            title: "商品",
-            imageUrl: null,
-          },
-      ),
-    }),
-  );
+  const ruleDetail = await loadRuleDetail({
+    shopId: session.shop,
+    rateId,
+    admin,
+  });
 
   return {
-    rate,
-    base: baseRule ? {id: baseRule.id, days: baseRule.days} : null,
-    productRules,
+    ...ruleDetail,
     flashMessage: flashText ? {text: flashText, tone: flashTone} : null,
   } satisfies LoaderData;
 };
 
+// フォームから送信された出荷ルールを検証・保存する
 export const action = async ({request, params}: ActionFunctionArgs) => {
   const {session} = await authenticate.admin(request);
   const rateId = params.rateId ?? "";
@@ -296,118 +85,32 @@ export const action = async ({request, params}: ActionFunctionArgs) => {
   }
 
   const rawPayload = String(form.get("payload") ?? "");
-  let payload: {
-    rateId: string;
-    base: {id: string | null; days: string};
-    productRules: ProductRule[];
-  } | null = null;
+  let payload: RulePayload | null = null;
 
   try {
-    payload = JSON.parse(rawPayload);
+    payload = JSON.parse(rawPayload) as RulePayload;
   } catch {
     return {ok: false, message: "入力内容を解釈できませんでした"} satisfies ActionData;
   }
 
-  if (!payload || payload.rateId !== rateId) {
-    return {ok: false, message: "配送ケースが一致しません"} satisfies ActionData;
+  const normalized = normalizeRulePayload(payload, rateId);
+  if (!normalized.ok) {
+    return {ok: false, message: normalized.message} satisfies ActionData;
   }
 
-  const errors: string[] = [];
-  const parsedBaseDays = Number.parseInt(payload.base.days, 10);
-  if (!Number.isFinite(parsedBaseDays) || parsedBaseDays <= 0) {
-    errors.push("基本設定の出荷リードタイムは1以上の整数で入力してください");
-  }
-
-  payload.productRules.forEach((rule, idx) => {
-    if (!rule.productIds || rule.productIds.length === 0) {
-      errors.push(`商品別設定${idx + 1}: 商品を選択してください`);
-    }
-    if (!Number.isFinite(rule.days) || rule.days <= 0) {
-      errors.push(`商品別設定${idx + 1}: 出荷リードタイムは1以上の整数で入力してください`);
-    }
+  await persistRulePayload({
+    shopId: session.shop,
+    rateId,
+    baseId: payload.base.id,
+    baseDays: normalized.baseDays,
+    productRules: normalized.productRules,
   });
-
-  if (errors.length > 0) {
-    return {ok: false, message: errors.join(" / ")} satisfies ActionData;
-  }
-
-  // Save base rule
-  if (payload.base.id) {
-    await prisma.rule.updateMany({
-      where: {id: payload.base.id, shopId: session.shop},
-      data: {
-        targetType: "all",
-        targetId: null,
-        shippingRateIds: [rateId],
-        days: parsedBaseDays,
-      },
-    });
-  } else {
-    await prisma.rule.create({
-      data: {
-        shopId: session.shop,
-        targetType: "all",
-        targetId: null,
-        shippingRateIds: [rateId],
-        days: parsedBaseDays,
-      },
-    });
-  }
-
-  const incomingIds = new Set(
-    payload.productRules.map((r) => r.id).filter(Boolean) as string[],
-  );
-
-  // Delete removed product rules for this rate
-  const existingProductRules = await prisma.rule.findMany({
-    where: {
-      shopId: session.shop,
-      targetType: "product",
-      shippingRateIds: {equals: [rateId]},
-    },
-    select: {id: true},
-  });
-
-  const deleteIds = existingProductRules
-    .map((r) => r.id)
-    .filter((id) => !incomingIds.has(id));
-
-  if (deleteIds.length > 0) {
-    await prisma.rule.deleteMany({
-      where: {shopId: session.shop, id: {in: deleteIds}},
-    });
-  }
-
-  // Upsert product rules
-  for (const rule of payload.productRules) {
-    const targetId = JSON.stringify(rule.productIds);
-    if (rule.id) {
-      await prisma.rule.updateMany({
-        where: {id: rule.id, shopId: session.shop},
-        data: {
-          targetType: "product",
-          targetId,
-          shippingRateIds: [rateId],
-          days: rule.days,
-        },
-      });
-    } else {
-      await prisma.rule.create({
-        data: {
-          shopId: session.shop,
-          targetType: "product",
-          targetId,
-          shippingRateIds: [rateId],
-          days: rule.days,
-        },
-      });
-    }
-  }
 
   return redirect(`/app/rules/${rateId}?message=${encodeURIComponent("保存しました")}&tone=success`);
 };
 
 
+// 選択済み商品をピルで簡易表示し、クリックでピッカーを開くUI
 function ProductPreviewPills({
   products,
   onClick,
@@ -469,7 +172,7 @@ function ProductPreviewPills({
               {product.imageUrl ? (
                 <img
                   src={product.imageUrl}
-                  alt={product.title || "商品"}
+                  alt={product.title || FALLBACK_PRODUCT_TITLE}
                   style={{
                     width: "1rem",
                     height: "1rem",
@@ -496,7 +199,7 @@ function ProductPreviewPills({
               <s-text
                 tone="neutral"
               >
-                {product.title || "商品"}
+                {product.title || FALLBACK_PRODUCT_TITLE}
               </s-text>
             </div>
           ))}
@@ -512,31 +215,40 @@ function ProductPreviewPills({
     </div>
   );
 }
-
-
-
-
+// 画面側で一意に識別するためのclientIdを付与した編集用ルール
 type EditableProductRule = ProductRuleWithProducts & {
   clientId: string;
 };
 
+// 配送レートごとの出荷ルール詳細・編集ページ
 export default function RuleDetailPage() {
   const {rate, base, productRules, flashMessage} = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
-  const [baseDays, setBaseDays] = useState<string>(base ? String(base.days) : "1");
+  const navigate = useNavigate();
+  const baseDaysFromLoader = base ? String(base.days) : DEFAULT_BASE_DAYS;
+  const [baseDays, setBaseDays] = useState<string>(baseDaysFromLoader);
+  const productRowsHydratingRef = useRef(true);
+  const shopify = useAppBridge();
 
+  const initialPayloadFromLoader = useMemo(
+    () => serializePayload(rate.shippingRateId, baseDaysFromLoader, base?.id ?? null, productRules),
+    [base?.days, base?.id, baseDaysFromLoader, productRules, rate.shippingRateId],
+  );
+  const initialPayloadRef = useRef(initialPayloadFromLoader);
+  if (initialPayloadRef.current !== initialPayloadFromLoader) {
+    initialPayloadRef.current = initialPayloadFromLoader;
+  }
+
+  // ID配列を商品サマリーに変換し、欠損時はダミーで補完する
   const withProductsForIds = (productIds: string[], products: ProductSummary[]) => {
     const productMap = new Map(products.map((product) => [product.id, product]));
     return productIds.map(
       (id) =>
-        productMap.get(id) ?? {
-          id,
-          title: "商品",
-          imageUrl: null,
-        },
+        productMap.get(id) ?? toFallbackProduct(id),
     );
   };
 
+  // サーバーからのデータをクライアント側の編集形式へ変換
   const hydrateRow = (rule: ProductRuleWithProducts, idx: number): EditableProductRule => ({
     ...rule,
     products: withProductsForIds(rule.productIds, rule.products ?? []),
@@ -547,16 +259,137 @@ export default function RuleDetailPage() {
     productRules.map((rule, idx) => hydrateRow(rule, idx)),
   );
 
+  // ローダーが更新されたときの初期同期
   useEffect(() => {
-    setBaseDays(base ? String(base.days) : "1");
+    productRowsHydratingRef.current = true;
+    setBaseDays(baseDaysFromLoader);
     setProductRows(productRules.map((rule, idx) => hydrateRow(rule, idx)));
-  }, [base?.days, base?.id, productRules]);
+  }, [base?.days, base?.id, baseDaysFromLoader, productRules]);
 
+  // productRowsの変更をhidden inputへ伝播させてSaveBarのdirty判定を維持
+  useEffect(() => {
+    if (productRowsHydratingRef.current) {
+      productRowsHydratingRef.current = false;
+      return;
+    }
+
+    const form = document.getElementById("rule-form") as HTMLFormElement | null;
+    const payloadInput = form?.querySelector<HTMLInputElement>('input[name="payload"]');
+    if (!payloadInput) return;
+
+    payloadInput.dispatchEvent(new Event("input", {bubbles: true}));
+    payloadInput.dispatchEvent(new Event("change", {bubbles: true}));
+  }, [productRows]);
+
+  // サーバーへ送るペイロード文字列と変更有無の判定
   const serializedPayload = useMemo(
     () => serializePayload(rate.shippingRateId, baseDays, base?.id ?? null, productRows),
     [rate.shippingRateId, baseDays, base?.id, productRows],
   );
+  const isDirty = serializedPayload !== initialPayloadRef.current;
 
+  // ShopifyのSaveBarと同期
+  useEffect(() => {
+    if (!shopify?.saveBar) return;
+    if (isDirty) {
+      shopify.saveBar.show?.("rule-form");
+    } else {
+      shopify.saveBar.hide?.("rule-form");
+    }
+  }, [isDirty, shopify]);
+
+  // 変更がある場合のみブラウザ遷移をブロック
+  const blocker = useBlocker(({currentLocation, nextLocation}) => {
+    if (!isDirty) return false;
+    if (
+      currentLocation.pathname === nextLocation.pathname &&
+      currentLocation.search === nextLocation.search &&
+      currentLocation.hash === nextLocation.hash
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  // SaveBarの離脱確認ダイアログを実行
+  useEffect(() => {
+    if (blocker.state !== "blocked") return;
+
+    let cancelled = false;
+    const confirmLeave = async () => {
+      try {
+        await shopify?.saveBar?.leaveConfirmation?.();
+        if (!cancelled) {
+          blocker.proceed();
+        }
+      } catch {
+        blocker.reset();
+      }
+    };
+
+    confirmLeave();
+    return () => {
+      cancelled = true;
+    };
+  }, [blocker, shopify]);
+
+  // ブラウザのリロード・タブクローズ時の警告
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
+  // 外部・内部リンククリック時の離脱確認
+  useEffect(() => {
+    if (!isDirty) return;
+
+    // 離脱確認を挟みつつ外部リンクにも対応
+    const handleAnchorNavigation = async (event: MouseEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+      const target = event.target as HTMLElement | null;
+      const anchor = target?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#")) return;
+
+      const url = new URL(href, window.location.href);
+      const samePage =
+        url.pathname === window.location.pathname &&
+        url.search === window.location.search &&
+        url.hash === window.location.hash;
+      if (samePage) return;
+
+      // Respect external links
+      const isExternal = url.origin !== window.location.origin;
+
+      event.preventDefault();
+
+      try {
+        await shopify?.saveBar?.leaveConfirmation?.();
+      } catch {
+        return;
+      }
+
+      if (isExternal) {
+        window.location.href = url.toString();
+      } else {
+        navigate(url.pathname + url.search + url.hash);
+      }
+    };
+
+    document.addEventListener("click", handleAnchorNavigation, true);
+    return () => document.removeEventListener("click", handleAnchorNavigation, true);
+  }, [isDirty, navigate, shopify]);
+
+  // Shopifyのリソースピッカーで商品選択を行い、行の内容を更新
   const openProductPicker = async (index: number) => {
     try {
       const picker = (window as any)?.shopify?.resourcePicker;
@@ -594,7 +427,7 @@ export default function RuleDetailPage() {
         prev.map((row, idx) => {
           if (idx !== index) return row;
           const mergedProducts = ids.map(
-            (id) => selectionMap.get(id) ?? row.products.find((p) => p.id === id) ?? {id, title: "商品", imageUrl: null},
+            (id) => selectionMap.get(id) ?? row.products.find((p) => p.id === id) ?? toFallbackProduct(id),
           );
           return {
             ...row,
@@ -608,6 +441,7 @@ export default function RuleDetailPage() {
     }
   };
 
+  // 商品別ルールを新規追加する
   const addProductRule = () => {
     setProductRows((prev) => [
       ...prev,
@@ -616,15 +450,17 @@ export default function RuleDetailPage() {
         clientId: `new-${Date.now()}`,
         productIds: [],
         products: [],
-        days: 1,
+        days: Number.parseInt(DEFAULT_BASE_DAYS, 10),
       },
     ]);
   };
 
+  // 指定した行を削除する
   const removeProductRule = (clientId: string) => {
     setProductRows((prev) => prev.filter((row) => row.clientId !== clientId));
   };
 
+  // 行単位で部分更新する
   const updateProductRule = (clientId: string, patch: Partial<EditableProductRule>) => {
     setProductRows((prev) =>
       prev.map((row) => (row.clientId === clientId ? {...row, ...patch} : row)),
@@ -637,7 +473,13 @@ export default function RuleDetailPage() {
   return (
     <Form method="post" id="rule-form" data-save-bar>
       <input type="hidden" name="_action" value="save_all" />
-      <input type="hidden" name="payload" value={serializedPayload} />
+      <input
+        key={initialPayloadRef.current}
+        type="hidden"
+        name="payload"
+        defaultValue={initialPayloadRef.current}
+        value={serializedPayload}
+      />
 
       <s-page heading={`出荷ルール詳細 / ${rate.title}`}>
         <s-link slot="breadcrumb-actions" href="/app/rules">
@@ -660,7 +502,7 @@ export default function RuleDetailPage() {
               autocomplete="off"
               value={baseDays}
               onInput={(event: any) => {
-                setBaseDays(event.target.value || "1");
+                setBaseDays(event.target.value || DEFAULT_BASE_DAYS);
               }}
             />
           </s-stack>
@@ -702,9 +544,9 @@ export default function RuleDetailPage() {
                           autocomplete="off"
                           value={String(row.days)}
                           onInput={(event: any) => {
-                            const value = event.target.value || "1";
+                            const parsed = parsePositiveInt(event.target.value);
                             updateProductRule(row.clientId, {
-                              days: Number.parseInt(value, 10),
+                              days: parsed ?? 1,
                             });
                           }}
                         />
