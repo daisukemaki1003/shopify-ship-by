@@ -335,6 +335,8 @@ export default function RuleDetailPage() {
               </InlineStack>
             </BlockStack>
           </Card>
+
+          <div style={{height: "60px"}}></div>
         </BlockStack>
       </Page>
     </Form>
