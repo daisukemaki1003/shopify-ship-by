@@ -7,10 +7,12 @@ import {toFallbackProduct, FALLBACK_PRODUCT_TITLE} from "../utils/products";
 import type {ProductRule, ProductRuleWithProducts, ProductSummary} from "../utils/rule-types";
 import {parsePositiveInt} from "../utils/validation";
 import {RuleTargetType} from "@prisma/client";
+import {toZoneKey} from "../utils/shipping-zones";
 
-// 配送レートのルール詳細に必要なデータ
-export type RuleDetailData = {
-  rate: ShippingRateEntry;
+// 配送エリアのルール詳細に必要なデータ
+export type ZoneRuleDetailData = {
+  zone: {key: string; name: string | null};
+  rates: ShippingRateEntry[];
   base: {id: string; days: number} | null;
   productRules: ProductRuleWithProducts[];
 };
@@ -80,50 +82,60 @@ export const fetchProductSummaries = async (
   return map;
 };
 
-// 配送レートに紐づくルール・商品情報を取得する
-export const loadRuleDetail = async ({
+const resolveZoneRates = async ({
   shopId,
-  rateId,
+  zoneKey,
+}: {
+  shopId: string;
+  zoneKey: string;
+}): Promise<{zoneKey: string; zoneName: string | null; rates: ShippingRateEntry[]}> => {
+  const rates = await getShippingRates(shopId);
+  const ratesInZone = rates.filter((rate) => toZoneKey(rate.zoneName) === zoneKey);
+  if (ratesInZone.length === 0) {
+    throw new Response("Not found", {status: 404});
+  }
+  return {
+    zoneKey,
+    zoneName: ratesInZone[0]?.zoneName ?? null,
+    rates: ratesInZone,
+  };
+};
+
+// 配送エリアに紐づくルール・商品情報を取得する
+export const loadZoneRuleDetail = async ({
+  shopId,
+  zoneKey,
   admin,
 }: {
   shopId: string;
-  rateId: string;
+  zoneKey: string;
   admin: AdminApiContext;
-}): Promise<RuleDetailData> => {
-  const [rates, ruleLinks, dbRate] = await Promise.all([
-    getShippingRates(shopId),
-    prisma.ruleShippingRate.findMany({
-      where: {
-        shopId,
-        shippingRateId: rateId,
-        shippingRateShopId: shopId,
-      },
-      include: {rule: true},
-      orderBy: {createdAt: "desc"},
-    }),
-    prisma.shippingRate.findFirst({
-      where: {shopId, shippingRateId: rateId},
-      select: {shippingRateId: true, handle: true, title: true, zoneName: true},
-    }),
-  ]);
+}): Promise<ZoneRuleDetailData> => {
+  const {zoneName, rates} = await resolveZoneRates({shopId, zoneKey});
+  const rateIds = rates.map((rate) => rate.shippingRateId);
 
-  const rate =
-    rates.find((r) => r.shippingRateId === rateId) ??
-    (dbRate
-      ? {
-        shippingRateId: dbRate.shippingRateId,
-        handle: dbRate.handle,
-        title: dbRate.title,
-        zoneName: dbRate.zoneName,
-      }
-      : null);
-  if (!rate) {
-    throw new Response("Not found", {status: 404});
-  }
+  const ruleLinks = await prisma.ruleShippingRate.findMany({
+    where: {
+      shopId,
+      shippingRateId: {in: rateIds},
+      shippingRateShopId: shopId,
+    },
+    include: {rule: true},
+    orderBy: {createdAt: "desc"},
+  });
 
-  const rules = ruleLinks.map((link) => link.rule);
+  const rulesById = new Map<string, (typeof ruleLinks)[number]["rule"]>();
+  ruleLinks.forEach((link) => {
+    if (!link?.rule?.id) return;
+    if (!rulesById.has(link.rule.id)) {
+      rulesById.set(link.rule.id, link.rule);
+    }
+  });
+  const rules = Array.from(rulesById.values());
 
-  const baseRule = rules.find((rule) => rule.targetType === RuleTargetType.all);
+  const baseRule = rules
+    .filter((rule) => rule.targetType === RuleTargetType.all)
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0];
 
   const productRulePayloads: ProductRule[] = rules
     .filter((rule) => rule.targetType === RuleTargetType.product)
@@ -150,26 +162,27 @@ export const loadRuleDetail = async ({
   );
 
   return {
-    rate,
+    zone: {key: zoneKey, name: zoneName},
+    rates,
     base: baseRule ? {id: baseRule.id, days: baseRule.days} : null,
     productRules,
   };
 };
 
 // クライアントから受け取る生ペイロード
-export type RulePayload = {
-  rateId: string;
+export type ZoneRulePayload = {
+  zoneKey: string;
   base: {id: string | null; days: string};
   productRules: ProductRule[];
 };
 
 // 入力値を検証し、DB保存に使える形へ正規化
-export const normalizeRulePayload = (
-  payload: RulePayload | null,
-  expectedRateId: string,
+export const normalizeZoneRulePayload = (
+  payload: ZoneRulePayload | null,
+  expectedZoneKey: string,
 ): {ok: false; message: string} | {ok: true; baseDays: number; productRules: ProductRule[]} => {
-  if (!payload || payload.rateId !== expectedRateId) {
-    return {ok: false, message: "配送ケースが一致しません"};
+  if (!payload || payload.zoneKey !== expectedZoneKey) {
+    return {ok: false, message: "配送エリアが一致しません"};
   }
 
   const errors: string[] = [];
@@ -202,35 +215,45 @@ export const normalizeRulePayload = (
 };
 
 // 検証済みペイロードをDBへ保存する
-export const persistRulePayload = async ({
+export const persistZoneRulePayload = async ({
   shopId,
-  rateId,
+  zoneKey,
   baseId,
   baseDays,
   productRules,
 }: {
   shopId: string;
-  rateId: string;
+  zoneKey: string;
   baseId: string | null;
   baseDays: number;
   productRules: ProductRule[];
 }) => {
-  const linkUniqueWhere = (ruleId: string) => ({
-    shopId_ruleId_shippingRateId: {shopId, ruleId, shippingRateId: rateId},
+  const {rates} = await resolveZoneRates({shopId, zoneKey});
+  const rateIds = rates.map((rate) => rate.shippingRateId);
+  const linkUniqueWhere = (ruleId: string, shippingRateId: string) => ({
+    shopId_ruleId_shippingRateId: {shopId, ruleId, shippingRateId},
   });
+
+  const ensureLinksForAllRates = async (ruleId: string) => {
+    await prisma.$transaction(
+      rateIds.map((shippingRateId) =>
+        prisma.ruleShippingRate.upsert({
+          where: linkUniqueWhere(ruleId, shippingRateId),
+          update: {},
+          create: {
+            shopId,
+            ruleId,
+            shippingRateId,
+            shippingRateShopId: shopId,
+          },
+        }),
+      ),
+    );
+  };
 
   if (baseId) {
     await prisma.rule.updateMany({where: {id: baseId, shopId}, data: {days: baseDays}});
-    await prisma.ruleShippingRate.upsert({
-      where: linkUniqueWhere(baseId),
-      update: {},
-      create: {
-        shopId,
-        ruleId: baseId,
-        shippingRateId: rateId,
-        shippingRateShopId: shopId,
-      },
-    });
+    await ensureLinksForAllRates(baseId);
   } else {
     const created = await prisma.rule.create({
       data: {
@@ -241,23 +264,16 @@ export const persistRulePayload = async ({
       },
     });
 
-    await prisma.ruleShippingRate.create({
-      data: {
-        shopId,
-        ruleId: created.id,
-        shippingRateId: rateId,
-        shippingRateShopId: shopId,
-      },
-    });
+    await ensureLinksForAllRates(created.id);
   }
 
   const incomingIds = new Set(productRules.map((r) => r.id).filter(Boolean) as string[]);
 
-  // レートに紐づく削除対象の商品別ルールを洗い出し
+  // 配送エリアに紐づく削除対象の商品別ルールを洗い出し
   const existingProductRuleLinks = await prisma.ruleShippingRate.findMany({
     where: {
       shopId,
-      shippingRateId: rateId,
+      shippingRateId: {in: rateIds},
       shippingRateShopId: shopId,
       rule: {targetType: RuleTargetType.product},
     },
@@ -270,11 +286,29 @@ export const persistRulePayload = async ({
 
   if (deleteIds.length > 0) {
     await prisma.ruleShippingRate.deleteMany({
-      where: {shopId, shippingRateId: rateId, shippingRateShopId: shopId, ruleId: {in: deleteIds}},
+      where: {
+        shopId,
+        shippingRateId: {in: rateIds},
+        shippingRateShopId: shopId,
+        ruleId: {in: deleteIds},
+      },
     });
-    await prisma.rule.deleteMany({
-      where: {shopId, id: {in: deleteIds}},
+
+    const externalLinks = await prisma.ruleShippingRate.findMany({
+      where: {
+        shopId,
+        ruleId: {in: deleteIds},
+        shippingRateId: {notIn: rateIds},
+      },
+      select: {ruleId: true},
     });
+    const externalRuleIds = new Set(externalLinks.map((link) => link.ruleId));
+    const safeToDelete = deleteIds.filter((id) => !externalRuleIds.has(id));
+    if (safeToDelete.length > 0) {
+      await prisma.rule.deleteMany({
+        where: {shopId, id: {in: safeToDelete}},
+      });
+    }
   }
 
   // 商品別ルールをUpsert
@@ -290,16 +324,7 @@ export const persistRulePayload = async ({
         },
       });
 
-      await prisma.ruleShippingRate.upsert({
-        where: linkUniqueWhere(rule.id),
-        update: {},
-        create: {
-          shopId,
-          ruleId: rule.id,
-          shippingRateId: rateId,
-          shippingRateShopId: shopId,
-        },
-      });
+      await ensureLinksForAllRates(rule.id);
     } else {
       const created = await prisma.rule.create({
         data: {
@@ -310,14 +335,7 @@ export const persistRulePayload = async ({
         },
       });
 
-      await prisma.ruleShippingRate.create({
-        data: {
-          shopId,
-          ruleId: created.id,
-          shippingRateId: rateId,
-          shippingRateShopId: shopId,
-        },
-      });
+      await ensureLinksForAllRates(created.id);
     }
   }
 };

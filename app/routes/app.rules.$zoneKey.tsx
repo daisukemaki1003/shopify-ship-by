@@ -14,11 +14,11 @@ import {
 
 import {authenticate} from "../shopify.server";
 import {
-  loadRuleDetail,
-  normalizeRulePayload,
-  persistRulePayload,
-  type RulePayload,
-  type RuleDetailData,
+  loadZoneRuleDetail,
+  normalizeZoneRulePayload,
+  persistZoneRulePayload,
+  type ZoneRulePayload,
+  type ZoneRuleDetailData,
 } from "../services/rules.server";
 import {DEFAULT_BASE_DAYS} from "../utils/rules";
 import {
@@ -32,9 +32,10 @@ import type {
   ProductSummary,
 } from "../utils/rule-types";
 import {ProductPreviewPills} from "app/components/ProductPreviewPills";
+import {toZoneLabel} from "../utils/shipping-zones";
 
 // 画面描画に必要なデータセット（flashMessageを付与）
-type LoaderData = RuleDetailData & {
+type LoaderData = ZoneRuleDetailData & {
   flashMessage: {text: string; tone: "success" | "critical"} | null;
 };
 
@@ -45,13 +46,13 @@ type ActionData =
 
 // バリデーション済みのペイロードをサーバーへ送るためにシリアライズ
 const serializePayload = (
-  rateId: string,
+  zoneKey: string,
   baseDays: string,
   baseId: string | null,
   productRules: Array<ProductRule | ProductRuleWithProducts>,
 ) => {
   return JSON.stringify({
-    rateId,
+    zoneKey,
     base: {id: baseId, days: baseDays},
     productRules: productRules.map((rule) => ({
       id: rule.id,
@@ -61,17 +62,17 @@ const serializePayload = (
   });
 };
 
-// 配送レートに紐づくルール・商品情報を取得する
+// 配送エリアに紐づくルール・商品情報を取得する
 export const loader = async ({request, params}: LoaderFunctionArgs) => {
   const {session, admin} = await authenticate.admin(request);
-  const rateId = params.rateId ?? "";
+  const zoneKey = params.zoneKey ?? "";
   const url = new URL(request.url);
   const flashText = url.searchParams.get("message");
   const flashTone = url.searchParams.get("tone") === "critical" ? "critical" : "success";
 
-  const ruleDetail = await loadRuleDetail({
+  const ruleDetail = await loadZoneRuleDetail({
     shopId: session.shop,
-    rateId,
+    zoneKey,
     admin,
   });
 
@@ -84,7 +85,7 @@ export const loader = async ({request, params}: LoaderFunctionArgs) => {
 // フォームから送信された出荷ルールを検証・保存する
 export const action = async ({request, params}: ActionFunctionArgs) => {
   const {session} = await authenticate.admin(request);
-  const rateId = params.rateId ?? "";
+  const zoneKey = params.zoneKey ?? "";
   const form = await request.formData();
   const actionType = String(form.get("_action") ?? "");
 
@@ -93,28 +94,30 @@ export const action = async ({request, params}: ActionFunctionArgs) => {
   }
 
   const rawPayload = String(form.get("payload") ?? "");
-  let payload: RulePayload | null = null;
+  let payload: ZoneRulePayload | null = null;
 
   try {
-    payload = JSON.parse(rawPayload) as RulePayload;
+    payload = JSON.parse(rawPayload) as ZoneRulePayload;
   } catch {
     return {ok: false, message: "入力内容を解釈できませんでした"} satisfies ActionData;
   }
 
-  const normalized = normalizeRulePayload(payload, rateId);
+  const normalized = normalizeZoneRulePayload(payload, zoneKey);
   if (!normalized.ok) {
     return {ok: false, message: normalized.message} satisfies ActionData;
   }
 
-  await persistRulePayload({
+  await persistZoneRulePayload({
     shopId: session.shop,
-    rateId,
+    zoneKey,
     baseId: payload.base.id,
     baseDays: normalized.baseDays,
     productRules: normalized.productRules,
   });
 
-  return redirect(`/app/rules/${rateId}?message=${encodeURIComponent("保存しました")}&tone=success`);
+  return redirect(
+    `/app/rules/${encodeURIComponent(zoneKey)}?message=${encodeURIComponent("保存しました")}&tone=success`,
+  );
 };
 
 // 画面側で一意に識別するためのclientIdを付与した編集用ルール
@@ -124,7 +127,7 @@ type EditableProductRule = ProductRuleWithProducts & {
 
 // 配送レートごとの出荷ルール詳細・編集ページ
 export default function RuleDetailPage() {
-  const {rate, base, productRules, flashMessage} = useLoaderData<LoaderData>();
+  const {zone, rates, base, productRules, flashMessage} = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
   const baseDaysFromLoader = base ? String(base.days) : DEFAULT_BASE_DAYS;
   const [baseDays, setBaseDays] = useState<string>(baseDaysFromLoader);
@@ -157,8 +160,8 @@ export default function RuleDetailPage() {
 
   // サーバーへ送るペイロード文字列
   const serializedPayload = useMemo(
-    () => serializePayload(rate.shippingRateId, baseDays, base?.id ?? null, productRows),
-    [rate.shippingRateId, baseDays, base?.id, productRows],
+    () => serializePayload(zone.key, baseDays, base?.id ?? null, productRows),
+    [zone.key, baseDays, base?.id, productRows],
   );
 
   // Shopifyのリソースピッカーで商品選択を行い、行の内容を更新
@@ -251,11 +254,18 @@ export default function RuleDetailPage() {
       <input type="hidden" name="payload" value={serializedPayload} />
 
       <Page
-        title={`出荷ルール詳細 / ${rate.title}`}
+        title={`出荷ルール詳細 / ${toZoneLabel(zone.name)}`}
         backAction={{content: "一覧に戻る", url: "/app/rules"}}
         primaryAction={<Button submit variant="primary">保存</Button>}
       >
         <BlockStack gap="400">
+          <Card>
+            <BlockStack gap="100">
+              <Text as="p" tone="subdued">
+                対象配送ケース: {rates.length} 件
+              </Text>
+            </BlockStack>
+          </Card>
           {bannerText ? (
             <Banner tone={bannerTone}>
               <p>{bannerText}</p>

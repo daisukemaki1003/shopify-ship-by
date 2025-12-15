@@ -12,7 +12,9 @@ type RawShippingRate = {
 };
 
 type RawShippingZone = {
+  id?: number | string | null;
   name?: string | null;
+  carrier_shipping_rate_providers?: Array<Record<string, unknown>> | null;
   shipping_rates?: RawShippingRate[] | null;
   price_based_shipping_rates?: RawShippingRate[] | null;
   weight_based_shipping_rates?: RawShippingRate[] | null;
@@ -23,6 +25,14 @@ export type ShippingRateEntry = {
   handle: string;
   title: string;
   zoneName: string | null;
+};
+
+const shouldDebugShippingRates = () => process.env.DEBUG_SHIPPING_RATES === "1";
+
+const debugShippingRates = (...args: any[]) => {
+  if (!shouldDebugShippingRates()) return;
+  // eslint-disable-next-line no-console
+  console.log("[shipping-rates]", ...args);
 };
 
 const parseShippingRates = (value: unknown): ShippingRateEntry[] => {
@@ -55,7 +65,7 @@ const normalizeRate = (
     rate.name;
 
   const handle =
-    rate.code ?? rate.service_code ?? rate.name ?? (shippingRateId ?? "");
+    rate.code ?? rate.service_code ?? rate.name ?? shippingRateId ?? "";
 
   const title = (rate.name ?? handle ?? shippingRateId ?? "").trim();
 
@@ -75,6 +85,26 @@ const normalizeRate = (
 const extractRates = (zones: RawShippingZone[]): ShippingRateEntry[] => {
   const map = new Map<string, ShippingRateEntry>();
 
+  debugShippingRates(
+    "extractRates zones",
+    zones.map((z) => ({
+      id: z?.id ?? null,
+      name: z?.name ?? null,
+      carrier_shipping_rate_providers: Array.isArray(z?.carrier_shipping_rate_providers)
+        ? z.carrier_shipping_rate_providers.length
+        : 0,
+      shipping_rates: Array.isArray(z?.shipping_rates)
+        ? z.shipping_rates.length
+        : 0,
+      price_based_shipping_rates: Array.isArray(z?.price_based_shipping_rates)
+        ? z.price_based_shipping_rates.length
+        : 0,
+      weight_based_shipping_rates: Array.isArray(z?.weight_based_shipping_rates)
+        ? z.weight_based_shipping_rates.length
+        : 0,
+    })),
+  );
+
   zones.forEach((zone) => {
     const zoneName = zone?.name ?? null;
     const candidates = [
@@ -82,6 +112,30 @@ const extractRates = (zones: RawShippingZone[]): ShippingRateEntry[] => {
       ...(zone.price_based_shipping_rates ?? []),
       ...(zone.weight_based_shipping_rates ?? []),
     ];
+
+    if (candidates.length === 0) {
+      const name = zoneName?.trim();
+      if (!name) return;
+
+      const zoneId =
+        typeof zone?.id === "number"
+          ? String(zone.id)
+          : typeof zone?.id === "string"
+            ? zone.id
+            : null;
+
+      const pseudo: ShippingRateEntry = {
+        shippingRateId: zoneId ? `zone:${zoneId}` : `zone:${name}`,
+        handle: name,
+        title: name,
+        zoneName: name,
+      };
+
+      if (!map.has(pseudo.shippingRateId)) {
+        map.set(pseudo.shippingRateId, pseudo);
+      }
+      return;
+    }
 
     candidates.forEach((rate) => {
       const normalized = normalizeRate(rate, zoneName);
@@ -96,12 +150,19 @@ const extractRates = (zones: RawShippingZone[]): ShippingRateEntry[] => {
     });
   });
 
-  return Array.from(map.values());
+  const rates = Array.from(map.values());
+  debugShippingRates("extractRates result", {
+    rates: rates.length,
+    distinctZones: Array.from(new Set(rates.map((r) => r.zoneName ?? null))),
+  });
+  return rates;
 };
 
 export async function fetchShippingRates(shop: string) {
   const { session, withRetry } = await getAdminClient(shop);
   const url = `https://${session.shop}/admin/api/${apiVersion}/shipping_zones.json`;
+
+  debugShippingRates("fetchShippingRates start", { shop: session.shop, url });
 
   const response = (await withRetry(
     () =>
@@ -121,8 +182,15 @@ export async function fetchShippingRates(shop: string) {
     );
   }
 
-  const body = (await response.json()) as { shipping_zones?: RawShippingZone[] };
+  const body = (await response.json()) as {
+    shipping_zones?: RawShippingZone[];
+  };
   const zones = Array.isArray(body.shipping_zones) ? body.shipping_zones : [];
+
+  debugShippingRates("fetchShippingRates response", {
+    shipping_zones: zones.length,
+    zoneNames: zones.map((z) => z?.name ?? null),
+  });
 
   return extractRates(zones);
 }
@@ -168,32 +236,75 @@ const writeShippingRateCache = async (
   ]);
 };
 
-export async function getShippingRates(shop: string): Promise<ShippingRateEntry[]> {
-  const setting = await prisma.shopSetting.findUnique({ where: { shopId: shop } });
+export async function getShippingRates(
+  shop: string,
+  options?: { maxAgeMs?: number },
+): Promise<ShippingRateEntry[]> {
+  const maxAgeMs = options?.maxAgeMs ?? 1000 * 60 * 60 * 6; // 6 hours
+  const setting = await prisma.shopSetting.findUnique({
+    where: { shopId: shop },
+    select: { shippingRates: true, updatedAt: true },
+  });
   const cached = parseShippingRates(setting?.shippingRates);
-  if (cached.length > 0) return cached;
+  const isFresh = Boolean(
+    setting?.updatedAt &&
+      Date.now() - new Date(setting.updatedAt).getTime() <= maxAgeMs,
+  );
 
-  const dbRates = await prisma.shippingRate.findMany({ where: { shopId: shop } });
+  if (cached.length > 0 && isFresh) {
+    debugShippingRates("getShippingRates cache hit", {
+      shop,
+      cached: cached.length,
+      updatedAt: setting?.updatedAt ?? null,
+    });
+    return cached;
+  }
+
+  if (cached.length > 0) {
+    debugShippingRates("getShippingRates cache stale; will sync", {
+      shop,
+      cached: cached.length,
+      updatedAt: setting?.updatedAt ?? null,
+      maxAgeMs,
+    });
+  }
+
+  const dbRates = await prisma.shippingRate.findMany({
+    where: { shopId: shop },
+  });
+  const dbNormalized = dbRates.map<ShippingRateEntry>((r) => ({
+    shippingRateId: r.shippingRateId,
+    handle: r.handle,
+    title: r.title,
+    zoneName: r.zoneName,
+  }));
+
   if (dbRates.length > 0) {
-    const normalized = dbRates.map<ShippingRateEntry>((r) => ({
-      shippingRateId: r.shippingRateId,
-      handle: r.handle,
-      title: r.title,
-      zoneName: r.zoneName,
-    }));
     await prisma.shopSetting.upsert({
       where: { shopId: shop },
-      create: { shopId: shop, shippingRates: normalized },
-      update: { shippingRates: normalized },
+      create: { shopId: shop, shippingRates: dbNormalized },
+      update: { shippingRates: dbNormalized },
     });
-    return normalized;
   }
-  return [];
+
+  try {
+    return await syncShippingRates(shop);
+  } catch (error) {
+    debugShippingRates(
+      "getShippingRates sync failed; fallback to cached/db",
+      error,
+    );
+    if (cached.length > 0) return cached;
+    if (dbNormalized.length > 0) return dbNormalized;
+    return [];
+  }
 }
 
 export async function syncShippingRates(shop: string) {
   const rates = await fetchShippingRates(shop);
-  const existing = await prisma.shippingRate.findMany({ where: { shopId: shop } });
+  const existing = await prisma.shippingRate.findMany({
+    where: { shopId: shop },
+  });
   await writeShippingRateCache(shop, rates);
 
   return rates;
