@@ -72,6 +72,8 @@ const DEFAULT_FORMAT = "YYYY-MM-DD";
 const normalizeKey = (value: string) =>
   value.trim().toLowerCase().replace(/[\s-]+/g, "_");
 
+const ensureArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+
 const buildFormatRegex = (format: string) => {
   const escaped = format.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
   const pattern = escaped
@@ -335,11 +337,11 @@ const toSet = (value: unknown) => {
 export const adjustForHolidays = (
   date: Date,
   holiday: HolidayLike | null | undefined,
-): Ok<Date> | Err => {
-  const holidaySet = toSet(holiday?.holidays);
-  const weeklySet = new Set(
-    ensureArray(holiday?.weeklyHolidays).map((day) => day.toLowerCase()),
-  );
+  ): Ok<Date> | Err => {
+    const holidaySet = toSet(holiday?.holidays);
+    const weeklySet = new Set(
+    ensureArray(holiday?.weeklyHolidays).map((day) => String(day).toLowerCase()),
+    );
 
   let cursor = new Date(date);
   for (let i = 0; i < 366; i++) {

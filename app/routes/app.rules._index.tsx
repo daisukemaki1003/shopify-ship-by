@@ -1,12 +1,10 @@
-import { Link, useLoaderData } from "react-router";
+import {useMemo} from "react";
+import {useLoaderData, useLocation, useNavigate} from "react-router";
+import {Banner, Card, IndexTable, Page, Text} from "@shopify/polaris";
 
 import prisma from "../db.server";
-import { authenticate } from "../shopify.server";
-import {
-  getShippingRates,
-  type ShippingRateEntry,
-} from "../services/shipping-rates.server";
-import { formatDateTime } from "../utils/format";
+import {authenticate} from "../shopify.server";
+import {getShippingRates, type ShippingRateEntry} from "../services/shipping-rates.server";
 
 type ShippingRuleSummary = {
   shippingRateId: string;
@@ -19,7 +17,7 @@ type ShippingRuleSummary = {
 
 type LoaderData = {
   summaries: ShippingRuleSummary[];
-  flashMessage: { text: string; tone: "success" | "critical" } | null;
+  flashMessage: {text: string; tone: "success" | "critical"} | null;
 };
 
 const toSummary = (rate: ShippingRateEntry): ShippingRuleSummary => ({
@@ -31,17 +29,17 @@ const toSummary = (rate: ShippingRateEntry): ShippingRuleSummary => ({
   individualCount: 0,
 });
 
-export const loader = async ({ request }: { request: Request }) => {
-  const { session } = await authenticate.admin(request);
+export const loader = async ({request}: {request: Request}) => {
+  const {session} = await authenticate.admin(request);
   const url = new URL(request.url);
   const flashText = url.searchParams.get("message");
   const flashTone = url.searchParams.get("tone") === "critical" ? "critical" : "success";
   const [rates, links] = await Promise.all([
     getShippingRates(session.shop),
     prisma.ruleShippingRate.findMany({
-      where: { shopId: session.shop },
-      include: { rule: true },
-      orderBy: { createdAt: "desc" },
+      where: {shopId: session.shop},
+      include: {rule: true},
+      orderBy: {createdAt: "desc"},
     }),
   ]);
 
@@ -71,57 +69,78 @@ export const loader = async ({ request }: { request: Request }) => {
 
   return {
     summaries: Array.from(map.values()),
-    flashMessage: flashText ? { text: flashText, tone: flashTone } : null,
+    flashMessage: flashText ? {text: flashText, tone: flashTone} : null,
   } satisfies LoaderData;
 };
 
-function SummaryCard({ summary }: { summary: ShippingRuleSummary }) {
-  const hasBase = summary.baseDays != null;
-  const hasIndividual = summary.individualCount > 0;
-
-  return (
-    <Link to={`/app/rules/${summary.shippingRateId}`}>
-      <s-box padding="base" borderWidth="base" borderRadius="large" background="surface">
-        <s-stack direction="block" gap="tight">
-          <s-text>{summary.title}</s-text>
-          {hasBase ? (
-            <s-text>・出荷リードタイム: {summary.baseDays} 日</s-text>
-          ) : (
-            <s-text tone="subdued">・基本設定がありません。</s-text>
-          )}
-          {hasIndividual ? (
-            <s-text tone="subdued">・個別設定: {summary.individualCount} 件</s-text>
-          ) : null}
-          {summary.baseUpdatedAt ? (
-            <s-text tone="subdued">・最終更新: {formatDateTime(summary.baseUpdatedAt)}</s-text>
-          ) : null}
-        </s-stack>
-      </s-box>
-    </Link>
-  );
-}
-
 export default function RulesIndexPage() {
-  const { summaries, flashMessage } = useLoaderData<LoaderData>();
+  const {summaries, flashMessage} = useLoaderData<LoaderData>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const resourceName = useMemo(
+    () => ({singular: "shipping rule", plural: "shipping rules"}),
+    [],
+  );
+  const host = useMemo(() => new URLSearchParams(location.search).get("host"), [location.search]);
 
   return (
-    <s-page heading="出荷ルール（配送ケース別）">
+    <Page title="出荷ルール（配送ケース別）">
       {flashMessage ? (
-        <s-text tone={flashMessage.tone} style={{ marginBottom: "12px", display: "block" }}>
-          {flashMessage.text}
-        </s-text>
+        <Banner tone={flashMessage.tone}>
+          <p>{flashMessage.text}</p>
+        </Banner>
       ) : null}
-      <s-stack direction="block" gap="base">
+
+      <Card padding="0">
         {summaries.length === 0 ? (
-          <s-box padding="base" background="subdued" borderWidth="base">
-            <s-text>配送ケースがありません。</s-text>
-          </s-box>
+          <div style={{padding: 16}}>
+            <Text as="p">配送ケースがありません。</Text>
+          </div>
         ) : (
-          summaries.map((summary) => (
-            <SummaryCard key={summary.shippingRateId} summary={summary} />
-          ))
+          <IndexTable
+            resourceName={resourceName}
+            itemCount={summaries.length}
+            selectable={false}
+            headings={[
+              {title: "配送ケース"},
+              {title: "ハンドル"},
+              {title: "基本設定（日）"},
+              {title: "商品別設定"},
+            ]}
+          >
+            {summaries.map((summary, index) => {
+              const baseText = summary.baseDays != null ? `${summary.baseDays} 日` : "未設定";
+              const individualText = `${summary.individualCount} 件`;
+              return (
+                <IndexTable.Row
+                  id={summary.shippingRateId}
+                  key={summary.shippingRateId}
+                  position={index}
+                  onClick={() => {
+                    const nextUrl = host
+                      ? `/app/rules/${summary.shippingRateId}?host=${encodeURIComponent(host)}`
+                      : `/app/rules/${summary.shippingRateId}`;
+                    navigate(nextUrl);
+                  }}
+                >
+                  <IndexTable.Cell>
+                    <Text as="span" fontWeight="semibold">
+                      {summary.title}
+                    </Text>
+                  </IndexTable.Cell>
+                  <IndexTable.Cell>
+                    <Text as="span" tone="subdued">
+                      {summary.handle}
+                    </Text>
+                  </IndexTable.Cell>
+                  <IndexTable.Cell>{baseText}</IndexTable.Cell>
+                  <IndexTable.Cell>{individualText}</IndexTable.Cell>
+                </IndexTable.Row>
+              );
+            })}
+          </IndexTable>
         )}
-      </s-stack>
-    </s-page>
+      </Card>
+    </Page>
   );
 }

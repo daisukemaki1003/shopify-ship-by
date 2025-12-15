@@ -1,8 +1,16 @@
-import {useEffect, useMemo, useRef, useState} from "react";
-import type React from "react";
+import {useEffect, useMemo, useState} from "react";
 import type {ActionFunctionArgs, LoaderFunctionArgs} from "react-router";
-import {Form, redirect, useActionData, useBlocker, useLoaderData, useNavigate} from "react-router";
-import {useAppBridge} from "@shopify/app-bridge-react";
+import {Form, redirect, useActionData, useLoaderData} from "react-router";
+import {
+  Banner,
+  BlockStack,
+  Button,
+  Card,
+  InlineStack,
+  Page,
+  Text,
+  TextField,
+} from "@shopify/polaris";
 
 import {authenticate} from "../shopify.server";
 import {
@@ -14,7 +22,6 @@ import {
 } from "../services/rules.server";
 import {DEFAULT_BASE_DAYS} from "../utils/rules";
 import {
-  FALLBACK_PRODUCT_TITLE,
   selectionToProductSummary,
   toFallbackProduct,
 } from "../utils/products";
@@ -24,6 +31,7 @@ import type {
   ProductRuleWithProducts,
   ProductSummary,
 } from "../utils/rule-types";
+import {ProductPreviewPills} from "app/components/ProductPreviewPills";
 
 // 画面描画に必要なデータセット（flashMessageを付与）
 type LoaderData = RuleDetailData & {
@@ -109,112 +117,6 @@ export const action = async ({request, params}: ActionFunctionArgs) => {
   return redirect(`/app/rules/${rateId}?message=${encodeURIComponent("保存しました")}&tone=success`);
 };
 
-
-// 選択済み商品をピルで簡易表示し、クリックでピッカーを開くUI
-function ProductPreviewPills({
-  products,
-  onClick,
-}: {
-  products: ProductSummary[];
-  onClick?: () => void;
-}) {
-  const hasProducts = products.length > 0;
-  const [isHovered, setIsHovered] = useState(false);
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!onClick) return;
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      onClick();
-    }
-  };
-
-  return (
-    <div
-      role={onClick ? "button" : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      onClick={onClick}
-      onKeyDown={handleKeyDown}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        width: "100%",
-        height: "2rem",
-        padding: "0.125rem",
-        borderRadius: "0.5rem",
-        border: `1px solid ${isHovered ? "#616161" : "#B7B7B7"}`,
-        background: isHovered ? "#FAF9FA" : "transparent",
-        cursor: onClick ? "pointer" : "default",
-        boxSizing: "border-box",
-        display: "flex",
-        alignItems: "center",
-      }}
-    >
-      {hasProducts ? (
-        // ▼ 商品リスト（チップをそのまま並べる）
-        <div style={{display: "flex", flexWrap: "wrap", gap: "0.25rem", alignItems: "center"}}>
-          {products.map((product) => (
-            <div
-              key={product.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                flexShrink: 0,
-                height: "1.5rem",
-                padding: "0 0.345rem",
-                borderRadius: "0.25rem",
-                background: "var(--p-color-bg-fill, rgba(227, 227, 227, 1))",
-                border: "1px solid var(--p-color-border, rgba(227, 227, 227, 1))",
-              }}
-            >
-              {/* サムネイル */}
-              {product.imageUrl ? (
-                <img
-                  src={product.imageUrl}
-                  alt={product.title || FALLBACK_PRODUCT_TITLE}
-                  style={{
-                    width: "1rem",
-                    height: "1rem",
-                    objectFit: "cover",
-                    borderRadius: 4,
-                    flexShrink: 0,
-                  }}
-                />
-              ) : (
-                <div
-                  aria-hidden="true"
-                  style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 4,
-                    background: "#F6F6F7",
-                    border: "1px solid #DFE3E8",
-                    flexShrink: 0,
-                  }}
-                />
-              )}
-
-              {/* タイトル（1行省略） */}
-              <s-text
-                tone="neutral"
-              >
-                {product.title || FALLBACK_PRODUCT_TITLE}
-              </s-text>
-            </div>
-          ))}
-        </div>
-      ) : (
-        // ▼ 未選択状態（フィールド内に灰色文字）
-        <s-text tone="neutral">
-          <div style={{padding: "0 0.5rem"}}>
-            商品を選択
-          </div>
-        </s-text>
-      )}
-    </div>
-  );
-}
 // 画面側で一意に識別するためのclientIdを付与した編集用ルール
 type EditableProductRule = ProductRuleWithProducts & {
   clientId: string;
@@ -224,20 +126,8 @@ type EditableProductRule = ProductRuleWithProducts & {
 export default function RuleDetailPage() {
   const {rate, base, productRules, flashMessage} = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
-  const navigate = useNavigate();
   const baseDaysFromLoader = base ? String(base.days) : DEFAULT_BASE_DAYS;
   const [baseDays, setBaseDays] = useState<string>(baseDaysFromLoader);
-  const productRowsHydratingRef = useRef(true);
-  const shopify = useAppBridge();
-
-  const initialPayloadFromLoader = useMemo(
-    () => serializePayload(rate.shippingRateId, baseDaysFromLoader, base?.id ?? null, productRules),
-    [base?.days, base?.id, baseDaysFromLoader, productRules, rate.shippingRateId],
-  );
-  const initialPayloadRef = useRef(initialPayloadFromLoader);
-  if (initialPayloadRef.current !== initialPayloadFromLoader) {
-    initialPayloadRef.current = initialPayloadFromLoader;
-  }
 
   // ID配列を商品サマリーに変換し、欠損時はダミーで補完する
   const withProductsForIds = (productIds: string[], products: ProductSummary[]) => {
@@ -261,133 +151,15 @@ export default function RuleDetailPage() {
 
   // ローダーが更新されたときの初期同期
   useEffect(() => {
-    productRowsHydratingRef.current = true;
     setBaseDays(baseDaysFromLoader);
     setProductRows(productRules.map((rule, idx) => hydrateRow(rule, idx)));
   }, [base?.days, base?.id, baseDaysFromLoader, productRules]);
 
-  // productRowsの変更をhidden inputへ伝播させてSaveBarのdirty判定を維持
-  useEffect(() => {
-    if (productRowsHydratingRef.current) {
-      productRowsHydratingRef.current = false;
-      return;
-    }
-
-    const form = document.getElementById("rule-form") as HTMLFormElement | null;
-    const payloadInput = form?.querySelector<HTMLInputElement>('input[name="payload"]');
-    if (!payloadInput) return;
-
-    payloadInput.dispatchEvent(new Event("input", {bubbles: true}));
-    payloadInput.dispatchEvent(new Event("change", {bubbles: true}));
-  }, [productRows]);
-
-  // サーバーへ送るペイロード文字列と変更有無の判定
+  // サーバーへ送るペイロード文字列
   const serializedPayload = useMemo(
     () => serializePayload(rate.shippingRateId, baseDays, base?.id ?? null, productRows),
     [rate.shippingRateId, baseDays, base?.id, productRows],
   );
-  const isDirty = serializedPayload !== initialPayloadRef.current;
-
-  // ShopifyのSaveBarと同期
-  useEffect(() => {
-    if (!shopify?.saveBar) return;
-    if (isDirty) {
-      shopify.saveBar.show?.("rule-form");
-    } else {
-      shopify.saveBar.hide?.("rule-form");
-    }
-  }, [isDirty, shopify]);
-
-  // 変更がある場合のみブラウザ遷移をブロック
-  const blocker = useBlocker(({currentLocation, nextLocation}) => {
-    if (!isDirty) return false;
-    if (
-      currentLocation.pathname === nextLocation.pathname &&
-      currentLocation.search === nextLocation.search &&
-      currentLocation.hash === nextLocation.hash
-    ) {
-      return false;
-    }
-    return true;
-  });
-
-  // SaveBarの離脱確認ダイアログを実行
-  useEffect(() => {
-    if (blocker.state !== "blocked") return;
-
-    let cancelled = false;
-    const confirmLeave = async () => {
-      try {
-        await shopify?.saveBar?.leaveConfirmation?.();
-        if (!cancelled) {
-          blocker.proceed();
-        }
-      } catch {
-        blocker.reset();
-      }
-    };
-
-    confirmLeave();
-    return () => {
-      cancelled = true;
-    };
-  }, [blocker, shopify]);
-
-  // ブラウザのリロード・タブクローズ時の警告
-  useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!isDirty) return;
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isDirty]);
-
-  // 外部・内部リンククリック時の離脱確認
-  useEffect(() => {
-    if (!isDirty) return;
-
-    // 離脱確認を挟みつつ外部リンクにも対応
-    const handleAnchorNavigation = async (event: MouseEvent) => {
-      if (event.defaultPrevented) return;
-      if (event.button !== 0) return;
-      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-
-      const target = event.target as HTMLElement | null;
-      const anchor = target?.closest?.("a[href]") as HTMLAnchorElement | null;
-      if (!anchor) return;
-      const href = anchor.getAttribute("href");
-      if (!href || href.startsWith("#")) return;
-
-      const url = new URL(href, window.location.href);
-      const samePage =
-        url.pathname === window.location.pathname &&
-        url.search === window.location.search &&
-        url.hash === window.location.hash;
-      if (samePage) return;
-
-      // Respect external links
-      const isExternal = url.origin !== window.location.origin;
-
-      event.preventDefault();
-
-      try {
-        await shopify?.saveBar?.leaveConfirmation?.();
-      } catch {
-        return;
-      }
-
-      if (isExternal) {
-        window.location.href = url.toString();
-      } else {
-        navigate(url.pathname + url.search + url.hash);
-      }
-    };
-
-    document.addEventListener("click", handleAnchorNavigation, true);
-    return () => document.removeEventListener("click", handleAnchorNavigation, true);
-  }, [isDirty, navigate, shopify]);
 
   // Shopifyのリソースピッカーで商品選択を行い、行の内容を更新
   const openProductPicker = async (index: number) => {
@@ -471,113 +243,100 @@ export default function RuleDetailPage() {
   const bannerTone = actionData ? "critical" : flashMessage?.tone ?? "success";
 
   return (
-    <Form method="post" id="rule-form" data-save-bar>
+    <Form
+      method="post"
+      id="rule-form"
+    >
       <input type="hidden" name="_action" value="save_all" />
-      <input
-        key={initialPayloadRef.current}
-        type="hidden"
-        name="payload"
-        defaultValue={initialPayloadRef.current}
-        value={serializedPayload}
-      />
+      <input type="hidden" name="payload" value={serializedPayload} />
 
-      <s-page heading={`出荷ルール詳細 / ${rate.title}`}>
-        <s-link slot="breadcrumb-actions" href="/app/rules">
-          一覧に戻る
-        </s-link>
+      <Page
+        title={`出荷ルール詳細 / ${rate.title}`}
+        backAction={{content: "一覧に戻る", url: "/app/rules"}}
+        primaryAction={<Button submit variant="primary">保存</Button>}
+      >
+        <BlockStack gap="400">
+          {bannerText ? (
+            <Banner tone={bannerTone}>
+              <p>{bannerText}</p>
+            </Banner>
+          ) : null}
 
-        {bannerText ? (
-          <s-banner tone={bannerTone}>
-            <p>{bannerText}</p>
-          </s-banner>
-        ) : null}
+          <Card>
+            <BlockStack gap="300">
+              <Text as="h2" variant="headingMd">
+                基本設定
+              </Text>
+              <TextField
+                label="出荷リードタイム（日）"
+                autoComplete="off"
+                value={baseDays}
+                onChange={(value) => setBaseDays(value || DEFAULT_BASE_DAYS)}
+              />
+            </BlockStack>
+          </Card>
 
-        <s-section heading="基本設定">
-          <s-stack direction="block" gap="none">
-            <s-text tone="neutral">
-              出荷リードタイム（日）
-            </s-text>
-            <s-text-field
-              name="baseDays"
-              autocomplete="off"
-              value={baseDays}
-              onInput={(event: any) => {
-                setBaseDays(event.target.value || DEFAULT_BASE_DAYS);
-              }}
-            />
-          </s-stack>
-        </s-section>
+          <Card>
+            <BlockStack gap="300">
+              <Text as="h2" variant="headingMd">
+                商品別設定（{productRows.length}件）
+              </Text>
 
-        <s-section heading={`商品別設定（${productRows.length}件）`}>
-          <s-stack gap="small">
-            {productRows.length === 0 ? (
-              <s-text tone="neutral">商品別設定がありません。</s-text>
-            ) : (
-              <s-stack gap="small">
-                {productRows.map((row, index) => (
-                  <s-box
-                    key={row.clientId}
-                    padding="base"
-                    borderWidth="base"
-                    borderRadius="base"
-                  >
-                    {/* 編集モードのみ表示：商品選択・日数・アクションを縦並び、ボタンだけ横並び */}
-                    <s-stack direction="block" gap="small">
-                      {/* 商品選択 */}
-                      <s-stack direction="block" gap="none">
-                        <s-text tone="neutral">
-                          商品
-                        </s-text>
-                        <ProductPreviewPills
-                          products={withProductsForIds(row.productIds, row.products)}
-                          onClick={() => openProductPicker(index)}
-                        />
-                      </s-stack>
+              {productRows.length === 0 ? (
+                <Text as="p" tone="subdued">
+                  商品別設定がありません。
+                </Text>
+              ) : (
+                <BlockStack gap="300">
+                  {productRows.map((row, index) => (
+                    <Card key={row.clientId}>
+                      <BlockStack gap="300">
+                        <div>
+                          <Text as="p" variant="bodyMd">
+                            商品
+                          </Text>
+                          <div style={{marginTop: 2}}>
+                            <ProductPreviewPills
+                              products={withProductsForIds(row.productIds, row.products)}
+                              onClick={() => openProductPicker(index)}
+                            />
+                          </div>
+                        </div>
 
-                      {/* 出荷リードタイム */}
-                      <s-stack direction="block" gap="none">
-                        <s-text tone="neutral">
-                          出荷リードタイム（日）
-                        </s-text>
-                        <s-text-field
-                          name={`productDays-${row.clientId}`}
-                          autocomplete="off"
+                        <TextField
+                          label="出荷リードタイム（日）"
+                          autoComplete="off"
                           value={String(row.days)}
-                          onInput={(event: any) => {
-                            const parsed = parsePositiveInt(event.target.value);
-                            updateProductRule(row.clientId, {
-                              days: parsed ?? 1,
-                            });
+                          onChange={(value) => {
+                            const parsed = parsePositiveInt(value);
+                            updateProductRule(row.clientId, {days: parsed ?? 1});
                           }}
                         />
-                      </s-stack>
 
-                      {/* アクション（横並び） */}
-                      <s-stack
-                        direction="inline"
-                        gap="small"
-                      >
-                        <s-button
-                          type="button"
-                          variant="tertiary"
-                          tone="critical"
-                          onClick={() => removeProductRule(row.clientId)}
-                        >
-                          削除
-                        </s-button>
-                      </s-stack>
-                    </s-stack>
-                  </s-box>
-                ))}
-              </s-stack>
-            )}
+                        <InlineStack align="end">
+                          <Button
+                            tone="critical"
+                            variant="tertiary"
+                            onClick={() => removeProductRule(row.clientId)}
+                          >
+                            削除
+                          </Button>
+                        </InlineStack>
+                      </BlockStack>
+                    </Card>
+                  ))}
+                </BlockStack>
+              )}
 
-            <s-button type="button" variant="secondary" onClick={addProductRule}>
-              商品別設定を追加
-            </s-button>
-          </s-stack>
-        </s-section>
-      </s-page>
+              <InlineStack align="start">
+                <Button variant="secondary" onClick={addProductRule}>
+                  商品別設定を追加
+                </Button>
+              </InlineStack>
+            </BlockStack>
+          </Card>
+        </BlockStack>
+      </Page>
     </Form>
   );
 }

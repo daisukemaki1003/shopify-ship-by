@@ -1,9 +1,78 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { Outlet, useLoaderData, useRouteError } from "react-router";
+import { Outlet, useLoaderData, useLocation, useNavigate, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { AppProvider } from "@shopify/shopify-app-react-router/react";
+import type React from "react";
+import { useEffect, forwardRef } from "react";
+import { AppProvider } from "@shopify/polaris";
+import enTranslations from "@shopify/polaris/locales/en.json";
+import { NavMenu } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
+
+type PolarisLinkProps = React.HTMLProps<HTMLAnchorElement> & { url: string };
+
+const PolarisLink = forwardRef<HTMLAnchorElement, PolarisLinkProps>(function PolarisLink(
+  { url, onClick, target, ...rest },
+  ref,
+) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const resolvedHref = url;
+
+  const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    try {
+      (onClick as any)?.(event);
+    } catch {
+      (onClick as any)?.();
+    }
+    if (event.defaultPrevented) return;
+    if (event.button !== 0) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (!resolvedHref || resolvedHref.startsWith("#")) return;
+    if (target && target !== "_self") return;
+
+    const nextUrl = new URL(resolvedHref, window.location.origin);
+    if (nextUrl.origin !== window.location.origin) return;
+
+    const host = new URLSearchParams(location.search).get("host");
+    if (host && !nextUrl.searchParams.get("host")) {
+      nextUrl.searchParams.set("host", host);
+    }
+
+    event.preventDefault();
+    navigate(nextUrl.pathname + nextUrl.search + nextUrl.hash);
+  };
+
+  return <a ref={ref} href={resolvedHref} target={target} onClick={handleClick} {...rest} />;
+});
+
+function AppBridgeScript({ apiKey }: { apiKey: string }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const host = new URLSearchParams(location.search).get("host");
+
+    const handleNavigate = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      const href = target?.getAttribute?.("href");
+      if (!href) return;
+
+      const url = new URL(href, window.location.origin);
+      if (host && !url.searchParams.get("host")) {
+        url.searchParams.set("host", host);
+      }
+      navigate(url.pathname + url.search + url.hash);
+    };
+
+    document.addEventListener("shopify:navigate", handleNavigate as EventListener);
+    return () => {
+      document.removeEventListener("shopify:navigate", handleNavigate as EventListener);
+    };
+  }, [location.search, navigate]);
+
+  return <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" data-api-key={apiKey} />;
+}
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
@@ -16,14 +85,17 @@ export default function App() {
   const { apiKey } = useLoaderData<typeof loader>();
 
   return (
-    <AppProvider embedded apiKey={apiKey}>
-      <s-app-nav>
-        <s-link href="/app">Home</s-link>
-        <s-link href="/app/additional">Additional page</s-link>
-        <s-link href="/app/rules">出荷ルール</s-link>
-      </s-app-nav>
-      <Outlet />
-    </AppProvider>
+    <>
+      <AppBridgeScript apiKey={apiKey} />
+      <AppProvider i18n={enTranslations} linkComponent={PolarisLink as any}>
+        <NavMenu>
+          <a href="/app">Home</a>
+          <a href="/app/additional">Additional page</a>
+          <a href="/app/rules">出荷ルール</a>
+        </NavMenu>
+        <Outlet />
+      </AppProvider>
+    </>
   );
 }
 

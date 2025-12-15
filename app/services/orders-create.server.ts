@@ -88,7 +88,6 @@ const coerceOrder = (payload: unknown): ShopifyOrderLike => {
     shipping_lines: Array.isArray(obj.shipping_lines)
       ? (obj.shipping_lines as ShopifyOrderLike["shipping_lines"])
       : [],
-    shipping_address: (obj.shipping_address as ShopifyOrderLike["shipping_address"]) ?? undefined,
     line_items: Array.isArray(obj.line_items)
       ? (obj.line_items as ShopifyOrderLike["line_items"])
       : [],
