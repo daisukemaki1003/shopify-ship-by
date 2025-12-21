@@ -551,6 +551,7 @@ export default function SettingsPage() {
                   <RadioButton
                     label="メタフィールド"
                     name="deliverySource"
+                    value="metafield"
                     checked={source === "metafield"}
                     onChange={(checked) => {
                       if (checked) setSourceValue("metafield");
@@ -564,7 +565,7 @@ export default function SettingsPage() {
                           selected={candidateId ? [candidateId] : []}
                           textField={
                             <Autocomplete.TextField
-                              label=""
+                              label="メタフィールド候補"
                               value={candidateQuery}
                               onChange={handleCandidateQueryChange}
                               placeholder="shipping.requested_date"
@@ -601,6 +602,7 @@ export default function SettingsPage() {
                   <RadioButton
                     label="注文属性（attributes）"
                     name="deliverySource"
+                    value="attributes"
                     checked={source === "attributes"}
                     onChange={(checked) => {
                       if (checked) setSourceValue("attributes");
@@ -610,7 +612,7 @@ export default function SettingsPage() {
                     <Box paddingInlineStart="400">
                       <BlockStack gap="200">
                         <TextField
-                          label=""
+                          label="注文属性キー"
                           autoComplete="off"
                           value={attributeKey}
                           onChange={handleAttributeKeyChange}
@@ -637,14 +639,16 @@ export default function SettingsPage() {
                 onChange={handleFormatPresetChange}
                 helpText="よく使う形式から選べます。"
               />
-              <TextField
-                label="日付パースフォーマット"
-                autoComplete="off"
-                value={format}
-                onChange={setFormat}
-                placeholder={DEFAULT_DATE_FORMAT}
-                helpText="テンプレートを選ぶと自動入力されます。必要なら編集できます。"
-              />
+              {formatPresetSelection === FORMAT_PRESET_CUSTOM ? (
+                <TextField
+                  label="日付パースフォーマット"
+                  autoComplete="off"
+                  value={format}
+                  onChange={setFormat}
+                  placeholder={DEFAULT_DATE_FORMAT}
+                  helpText="テンプレートを選ぶと自動入力されます。必要なら編集できます。"
+                />
+              ) : null}
               <TextField
                 label="サンプル値（任意）"
                 autoComplete="off"
@@ -660,7 +664,6 @@ export default function SettingsPage() {
                     : formatPreview.message}
                 </Text>
               ) : null}
-              <input type="hidden" name="deliverySource" value={source} />
               <input type="hidden" name="deliveryKey" value={key} />
               <input type="hidden" name="deliveryFormat" value={format} />
             </BlockStack>

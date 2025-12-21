@@ -5,12 +5,16 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
+import { DeliveryMethod } from "@shopify/shopify-api";
 import prisma from "./db.server";
+import { ensureShipByMetafieldDefinition } from "./services/metafield-definition.server";
 import { upsertShopFromSession } from "./services/shop.server";
 
 const defaultScopes = [
   "read_orders",
   "write_orders",
+  "read_metafield_definitions",
+  "write_metafield_definitions",
   "read_products",
   "read_shipping",
 ];
@@ -30,9 +34,28 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
+  webhooks: {
+    APP_UNINSTALLED: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/app/uninstalled",
+    },
+    APP_SCOPES_UPDATE: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/app/scopes_update",
+    },
+    ORDERS_CREATE: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/orders/create",
+    },
+  },
   hooks: {
     afterAuth: async ({ session }) => {
       await upsertShopFromSession(session);
+      await shopify.registerWebhooks({ session });
+      const result = await ensureShipByMetafieldDefinition(session.shop);
+      if (!result.ok) {
+        console.warn("[shopify] failed to ensure ship-by definition", result.message);
+      }
     },
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN
