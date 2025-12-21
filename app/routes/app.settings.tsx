@@ -211,6 +211,8 @@ export const action = async ({request}: ActionFunctionArgs) => {
   const rawFormat = String(form.get("deliveryFormat") ?? "").trim();
   const rawSaveTag = form.get("saveTag");
   const rawSaveMetafield = form.get("saveMetafield");
+  const saveTag = rawSaveTag != null;
+  const saveMetafield = rawSaveMetafield != null;
   const rawSaveTagFormat = String(form.get("saveTagFormat") ?? "").trim();
 
   const fieldErrors: NonNullable<Exclude<ActionData, {ok: true}>>["fieldErrors"] = {};
@@ -240,8 +242,8 @@ export const action = async ({request}: ActionFunctionArgs) => {
       deliverySource: rawSource,
       deliveryKey: rawKey,
       deliveryFormat: rawFormat || null,
-      saveTag: rawSaveTag === "on",
-      saveMetafield: rawSaveMetafield === "on",
+      saveTag,
+      saveMetafield,
       saveTagFormat: rawSaveTagFormat || null,
     },
     update: {
@@ -249,8 +251,8 @@ export const action = async ({request}: ActionFunctionArgs) => {
       deliverySource: rawSource,
       deliveryKey: rawKey,
       deliveryFormat: rawFormat || null,
-      saveTag: rawSaveTag === "on",
-      saveMetafield: rawSaveMetafield === "on",
+      saveTag,
+      saveMetafield,
       saveTagFormat: rawSaveTagFormat || null,
     },
   });
