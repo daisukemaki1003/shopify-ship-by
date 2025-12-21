@@ -627,6 +627,9 @@ export default function SettingsPage() {
             </BlockStack>
           </Card>
         </BlockStack>
+
+
+        <div style={{height: "60px"}}></div>
       </Page>
     </Form>
   );
