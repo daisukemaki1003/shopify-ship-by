@@ -26,7 +26,6 @@ type LoaderData = {
   deliverySource: "metafield" | "attributes" | null;
   deliveryKey: string | null;
   deliveryFormat: string | null;
-  saveMetafield: boolean;
   saveTag: boolean;
   saveTagFormat: string | null;
   deliveryCandidates: DeliveryCandidate[];
@@ -159,7 +158,6 @@ export const loader = async ({request}: LoaderFunctionArgs) => {
       deliverySource: true,
       deliveryKey: true,
       deliveryFormat: true,
-      saveMetafield: true,
       saveTag: true,
       saveTagFormat: true,
     },
@@ -191,7 +189,6 @@ export const loader = async ({request}: LoaderFunctionArgs) => {
     deliverySource: setting?.deliverySource ?? null,
     deliveryKey: setting?.deliveryKey ?? null,
     deliveryFormat: setting?.deliveryFormat ?? null,
-    saveMetafield: setting?.saveMetafield ?? true,
     saveTag: setting?.saveTag ?? false,
     saveTagFormat: setting?.saveTagFormat ?? null,
     deliveryCandidates,
@@ -210,9 +207,7 @@ export const action = async ({request}: ActionFunctionArgs) => {
   const rawKey = String(form.get("deliveryKey") ?? "").trim();
   const rawFormat = String(form.get("deliveryFormat") ?? "").trim();
   const rawSaveTag = form.get("saveTag");
-  const rawSaveMetafield = form.get("saveMetafield");
   const saveTag = rawSaveTag != null;
-  const saveMetafield = rawSaveMetafield != null;
   const rawSaveTagFormat = String(form.get("saveTagFormat") ?? "").trim();
 
   const fieldErrors: NonNullable<Exclude<ActionData, {ok: true}>>["fieldErrors"] = {};
@@ -243,7 +238,7 @@ export const action = async ({request}: ActionFunctionArgs) => {
       deliveryKey: rawKey,
       deliveryFormat: rawFormat || null,
       saveTag,
-      saveMetafield,
+      saveMetafield: false,
       saveTagFormat: rawSaveTagFormat || null,
     },
     update: {
@@ -252,7 +247,7 @@ export const action = async ({request}: ActionFunctionArgs) => {
       deliveryKey: rawKey,
       deliveryFormat: rawFormat || null,
       saveTag,
-      saveMetafield,
+      saveMetafield: false,
       saveTagFormat: rawSaveTagFormat || null,
     },
   });
@@ -287,7 +282,6 @@ export default function SettingsPage() {
     deliverySource,
     deliveryKey,
     deliveryFormat,
-    saveMetafield,
     saveTag,
     saveTagFormat,
     deliveryCandidates,
@@ -314,7 +308,6 @@ export default function SettingsPage() {
     findCandidateId(deliveryCandidates, deliverySource, deliveryKey),
   );
   const [candidateQuery, setCandidateQuery] = useState("");
-  const [isSaveMetafield, setIsSaveMetafield] = useState(saveMetafield);
   const [isSaveTag, setIsSaveTag] = useState(saveTag);
   const [tagFormat, setTagFormat] = useState(saveTagFormat ?? "");
   const isFormReady =
@@ -469,7 +462,6 @@ export default function SettingsPage() {
         ? missingCandidateId(deliveryKey.trim())
         : "";
     setCandidateId(matched || missingId);
-    setIsSaveMetafield(saveMetafield);
     setIsSaveTag(saveTag);
     setTagFormat(saveTagFormat ?? "");
   }, [
@@ -477,7 +469,6 @@ export default function SettingsPage() {
     deliverySource,
     deliveryKey,
     deliveryFormat,
-    saveMetafield,
     saveTag,
     saveTagFormat,
     deliveryCandidates,
@@ -676,12 +667,6 @@ export default function SettingsPage() {
               <Text as="h2" variant="headingMd">
                 保存先設定
               </Text>
-              <Checkbox
-                label="メタフィールドへ保存"
-                name="saveMetafield"
-                checked={isSaveMetafield}
-                onChange={setIsSaveMetafield}
-              />
               <Checkbox
                 label="タグへ保存"
                 name="saveTag"

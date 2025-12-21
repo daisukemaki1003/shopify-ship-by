@@ -54,7 +54,7 @@
 | deliverySource | DeliverySource? | `metafield` or `attributes` |
 | deliveryKey | String? | 取得キー（例: `shipping.requested_date`） |
 | deliveryFormat | String? | 日付パースフォーマット（例: `YYYY-MM-DD`） |
-| saveTag / saveMetafield | Boolean | タグ/メタフィールドへの保存ON/OFF |
+| saveTag / saveMetafield | Boolean | タグへの保存ON/OFF（メタフィールド保存は現在未使用） |
 | saveTagFormat | String? | 保存フォーマット（例: `ship-by-{YYYY}-{MM}-{DD}`） |
 | language | String? | UI言語 |
 | shippingRates | Json | Shipping Rate キャッシュ（`id/handle/title/zoneName/enabled` の配列） |

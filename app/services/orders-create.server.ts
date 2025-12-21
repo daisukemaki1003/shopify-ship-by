@@ -12,8 +12,6 @@ import {
   type ShopSettingLike,
 } from "./ship-by.server";
 
-const METAFIELD_NAMESPACE = "ship_by";
-const METAFIELD_KEY = "deadline";
 const DEFAULT_TAG_FORMAT = "ship-by-{YYYY}-{MM}-{DD}";
 
 const parseOrderId = (value: unknown): { id: string | number | null; bigInt: bigint } => {
@@ -112,59 +110,6 @@ const extractTags = (payload: unknown): string[] => {
       .filter(Boolean);
   }
   return [];
-};
-
-const saveMetafield = async (
-  shop: string,
-  orderId: string | number,
-  shipBy: Date,
-) => {
-  const { admin, withRetry } = await getAdminClient(shop);
-  const ownerId = `gid://shopify/Order/${orderId}`;
-  const value = toISODate(shipBy);
-
-  const response = (await withRetry(
-    () =>
-      admin.graphql(
-        `#graphql
-        mutation setShipByMetafield($metafields: [MetafieldsSetInput!]!) {
-          metafieldsSet(metafields: $metafields) {
-            userErrors {
-              field
-              message
-            }
-          }
-        }`,
-        {
-          variables: {
-            metafields: [
-              {
-                ownerId,
-                namespace: METAFIELD_NAMESPACE,
-                key: METAFIELD_KEY,
-                type: "date",
-                value,
-              },
-            ],
-          },
-        },
-      ),
-    { action: "metafieldsSet" },
-  )) as Response;
-
-  const body = (await response.json()) as {
-    data?: { metafieldsSet?: { userErrors?: Array<{ message?: string }> } };
-    errors?: Array<{ message?: string }>;
-  };
-
-  const userErrors = body.data?.metafieldsSet?.userErrors ?? [];
-  if ((body.errors && body.errors.length > 0) || userErrors.length > 0) {
-    const message =
-      body.errors?.map((e) => e.message).join("; ") ||
-      userErrors.map((e) => e.message).join("; ") ||
-      "metafieldsSet failed";
-    throw new Error(message);
-  }
 };
 
 const saveTags = async ({
@@ -272,12 +217,7 @@ export const handleOrdersCreate = async (shop: string, payload: unknown) => {
     }
 
     const shipBy = calcResult.value.shipBy;
-    const saveMetafieldEnabled = setting?.saveMetafield !== false;
     const saveTagEnabled = setting?.saveTag === true;
-
-    if (saveMetafieldEnabled) {
-      await saveMetafield(shop, orderId, shipBy);
-    }
 
     if (saveTagEnabled) {
       await saveTags({
