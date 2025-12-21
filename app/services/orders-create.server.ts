@@ -74,12 +74,21 @@ const formatWithTokens = (template: string | null | undefined, date: Date) => {
 
 const coerceOrder = (payload: unknown): ShopifyOrderLike => {
   const obj = (payload ?? {}) as Record<string, unknown>;
+  const attributes: ShopifyOrderLike["attributes"] = [];
+
+  if (Array.isArray(obj.attributes)) {
+    attributes.push(...(obj.attributes as ShopifyOrderLike["attributes"]));
+  }
+  if (Array.isArray(obj.note_attributes)) {
+    attributes.push(...(obj.note_attributes as ShopifyOrderLike["attributes"]));
+  }
+  if (Array.isArray(obj.noteAttributes)) {
+    attributes.push(...(obj.noteAttributes as ShopifyOrderLike["attributes"]));
+  }
 
   return {
     id: obj.id as ShopifyOrderLike["id"],
-    attributes: Array.isArray(obj.attributes)
-      ? (obj.attributes as ShopifyOrderLike["attributes"])
-      : [],
+    attributes,
     metafields: Array.isArray(obj.metafields)
       ? (obj.metafields as ShopifyOrderLike["metafields"])
       : [],
@@ -212,6 +221,12 @@ export const handleOrdersCreate = async (shop: string, payload: unknown) => {
     });
 
     if (!calcResult.ok) {
+      console.warn("[orders-create] shipping calculation failed", {
+        shop,
+        orderId,
+        error: calcResult.error,
+        message: calcResult.message,
+      });
       await recordError(shop, orderId, calcResult.message, { payload });
       return;
     }

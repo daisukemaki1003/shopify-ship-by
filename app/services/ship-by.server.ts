@@ -372,8 +372,32 @@ export const calculateShipBy = (input: {
   const deliveryResult = parseDeliveryDate(input.order, input.shopSetting);
   if (!deliveryResult.ok) return deliveryResult;
 
+  const fallbackDays = input.shopSetting.defaultLeadDays;
+  const fallbackWithDays = (days: number, shippingRateId: string): CalculationResult => {
+    const baseShipBy = addDays(deliveryResult.value, -days);
+    const adjustedResult = adjustForHolidays(baseShipBy, input.holiday);
+    if (!adjustedResult.ok) return adjustedResult;
+
+    return {
+      ok: true,
+      value: {
+        shipBy: adjustedResult.value,
+        deliveryDate: deliveryResult.value,
+        adoptDays: days,
+        shippingRateId,
+        matchedRuleIds: [],
+        adjustedFrom: baseShipBy,
+      },
+    };
+  };
+
   const shippingRateResult = detectShippingRate(input.order, input.shopSetting);
-  if (!shippingRateResult.ok) return shippingRateResult;
+  if (!shippingRateResult.ok) {
+    if (fallbackDays && fallbackDays > 0) {
+      return fallbackWithDays(fallbackDays, "unknown");
+    }
+    return shippingRateResult;
+  }
 
   const productIds = getProductIds(input.order);
 
@@ -384,23 +408,8 @@ export const calculateShipBy = (input: {
   });
 
   if (!ruleResult.ok) {
-    const fallbackDays = input.shopSetting.defaultLeadDays;
     if (ruleResult.error === "no_rule" && fallbackDays && fallbackDays > 0) {
-      const baseShipBy = addDays(deliveryResult.value, -fallbackDays);
-      const adjustedResult = adjustForHolidays(baseShipBy, input.holiday);
-      if (!adjustedResult.ok) return adjustedResult;
-
-      return {
-        ok: true,
-        value: {
-          shipBy: adjustedResult.value,
-          deliveryDate: deliveryResult.value,
-          adoptDays: fallbackDays,
-          shippingRateId: shippingRateResult.value,
-          matchedRuleIds: [],
-          adjustedFrom: baseShipBy,
-        },
-      };
+      return fallbackWithDays(fallbackDays, shippingRateResult.value);
     }
     return ruleResult;
   }
