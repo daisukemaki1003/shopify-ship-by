@@ -69,6 +69,7 @@ export type CalculationResult =
 
 const WEEKDAY_CODES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 const DEFAULT_FORMAT = "YYYY-MM-DD";
+const WEEKDAY_TOKEN = "(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat|日|月|火|水|木|金|土)";
 
 const normalizeKey = (value: string) =>
   value.trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -80,7 +81,8 @@ const buildFormatRegex = (format: string) => {
   const pattern = escaped
     .replace(/YYYY/g, "(?<year>\\d{4})")
     .replace(/MM/g, "(?<month>\\d{1,2})")
-    .replace(/DD/g, "(?<day>\\d{1,2})");
+    .replace(/DD/g, "(?<day>\\d{1,2})")
+    .replace(/ddd/g, WEEKDAY_TOKEN);
   return new RegExp(`^${pattern}$`);
 };
 

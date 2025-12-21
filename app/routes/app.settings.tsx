@@ -9,6 +9,7 @@ import {
   Card,
   Checkbox,
   Page,
+  Select,
   Text,
   TextField,
   RadioButton,
@@ -45,6 +46,14 @@ type ActionData =
   };
 
 const DEFAULT_DATE_FORMAT = "YYYY-MM-DD";
+const FORMAT_PRESET_CUSTOM = "__custom__";
+const FORMAT_PRESETS = [
+  {label: "YYYY/MM/DD (ddd) 例: 2025/12/24 (水)", value: "YYYY/MM/DD (ddd)"},
+  {label: "YYYY/MM/DD", value: "YYYY/MM/DD"},
+  {label: "YYYY-MM-DD（既定）", value: "YYYY-MM-DD"},
+  {label: "YYYY年MM月DD日", value: "YYYY年MM月DD日"},
+] as const;
+const WEEKDAY_TOKEN = "(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat|日|月|火|水|木|金|土)";
 const missingCandidateId = (key: string) => `missing:${key}`;
 
 type DeliveryCandidate = {
@@ -52,6 +61,54 @@ type DeliveryCandidate = {
   source: "metafield" | "attributes";
   key: string;
   sample: string | null;
+};
+
+const buildFormatRegex = (format: string) => {
+  const escaped = format.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+  const pattern = escaped
+    .replace(/YYYY/g, "(?<year>\\d{4})")
+    .replace(/MM/g, "(?<month>\\d{1,2})")
+    .replace(/DD/g, "(?<day>\\d{1,2})")
+    .replace(/ddd/g, WEEKDAY_TOKEN);
+  return new RegExp(`^${pattern}$`);
+};
+
+const dateFromParts = (year: number, month: number, day: number) => {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+};
+
+const parseDateWithFormat = (raw: string, format: string) => {
+  const regex = buildFormatRegex(format);
+  const match = regex.exec(raw.trim());
+  if (!match?.groups) return null;
+
+  const year = Number.parseInt(match.groups.year ?? "", 10);
+  const month = Number.parseInt(match.groups.month ?? "", 10);
+  const day = Number.parseInt(match.groups.day ?? "", 10);
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+
+  return dateFromParts(year, month, day);
+};
+
+const toISODate = (date: Date) => date.toISOString().slice(0, 10);
+
+const resolvePresetValue = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return FORMAT_PRESET_CUSTOM;
+  return FORMAT_PRESETS.some((preset) => preset.value === trimmed)
+    ? trimmed
+    : FORMAT_PRESET_CUSTOM;
 };
 
 const buildCandidates = (payload: any): DeliveryCandidate[] => {
@@ -247,6 +304,10 @@ export default function SettingsPage() {
     initialSource === "attributes" ? deliveryKey ?? "" : "",
   );
   const [format, setFormat] = useState(deliveryFormat ?? "");
+  const [formatPresetSelection, setFormatPresetSelection] = useState(
+    resolvePresetValue(deliveryFormat ?? ""),
+  );
+  const [formatSample, setFormatSample] = useState("");
   const [candidateId, setCandidateId] = useState<string>(() =>
     findCandidateId(deliveryCandidates, deliverySource, deliveryKey),
   );
@@ -263,6 +324,21 @@ export default function SettingsPage() {
   const successMessage = bannerTone === "success" ? bannerText : null;
   const errorMessage = bannerTone === "critical" ? bannerText : null;
   const fieldErrors = actionData && !actionData.ok ? actionData.fieldErrors : undefined;
+  const formatPreview = useMemo(() => {
+    const sample = formatSample.trim();
+    if (!sample) return null;
+    const trimmedFormat = format.trim();
+    const formatForPreview = trimmedFormat || DEFAULT_DATE_FORMAT;
+    const formatHint = trimmedFormat ? "" : `（既定: ${DEFAULT_DATE_FORMAT}）`;
+    const parsed = parseDateWithFormat(sample, formatForPreview);
+    if (!parsed) {
+      return {
+        ok: false,
+        message: `「${formatForPreview}」に一致しません${formatHint}。括弧やスペースも一致が必要です。`,
+      };
+    }
+    return {ok: true, value: toISODate(parsed), hint: formatHint};
+  }, [format, formatSample]);
   const missingMetafieldCandidate = useMemo(() => {
     if (source !== "metafield") return null;
     const trimmedKey = key.trim();
@@ -322,6 +398,12 @@ export default function SettingsPage() {
     }
   };
 
+  const handleFormatPresetChange = (value: string) => {
+    setFormatPresetSelection(value);
+    if (value === FORMAT_PRESET_CUSTOM) return;
+    setFormat(value);
+  };
+
   const handleCandidateQueryChange = (value: string) => {
     setCandidateQuery(value);
     if (!candidateId) return;
@@ -378,6 +460,7 @@ export default function SettingsPage() {
     setMetafieldKey(nextSource === "metafield" ? deliveryKey ?? "" : "");
     setAttributeKey(nextSource === "attributes" ? deliveryKey ?? "" : "");
     setFormat(deliveryFormat ?? "");
+    setFormatPresetSelection(resolvePresetValue(deliveryFormat ?? ""));
     const matched = findCandidateId(deliveryCandidates, nextSource, deliveryKey);
     const missingId =
       nextSource === "metafield" && deliveryKey
@@ -541,14 +624,42 @@ export default function SettingsPage() {
                   ) : null}
                 </BlockStack>
               </BlockStack>
+              <Select
+                label="フォーマットテンプレート"
+                options={[
+                  ...FORMAT_PRESETS.map((preset) => ({
+                    label: preset.label,
+                    value: preset.value,
+                  })),
+                  {label: "カスタム（手入力）", value: FORMAT_PRESET_CUSTOM},
+                ]}
+                value={formatPresetValue}
+                onChange={handleFormatPresetChange}
+                helpText="よく使う形式から選べます。"
+              />
               <TextField
                 label="日付パースフォーマット"
                 autoComplete="off"
                 value={format}
                 onChange={setFormat}
                 placeholder={DEFAULT_DATE_FORMAT}
-                helpText={`未入力の場合は ${DEFAULT_DATE_FORMAT} を使用します。`}
+                helpText="テンプレートを選ぶと自動入力されます。必要なら編集できます。"
               />
+              <TextField
+                label="サンプル値（任意）"
+                autoComplete="off"
+                value={formatSample}
+                onChange={setFormatSample}
+                placeholder="2025/12/24 (水)"
+                helpText="入力すると解析結果を表示します。"
+              />
+              {formatPreview ? (
+                <Text as="p" tone={formatPreview.ok ? "success" : "critical"}>
+                  {formatPreview.ok
+                    ? `解析結果: ${formatPreview.value}${formatPreview.hint ?? ""}`
+                    : formatPreview.message}
+                </Text>
+              ) : null}
               <input type="hidden" name="deliverySource" value={source} />
               <input type="hidden" name="deliveryKey" value={key} />
               <input type="hidden" name="deliveryFormat" value={format} />
