@@ -54,13 +54,15 @@
 | deliverySource | DeliverySource? | `metafield` or `attributes` |
 | deliveryKey | String? | 取得キー（例: `shipping.requested_date`） |
 | deliveryFormat | String? | 日付パースフォーマット（例: `YYYY-MM-DD`） |
-| saveTag / saveNote / saveMetafield | Boolean | タグ/メモ/メタフィールドへの保存ON/OFF |
-| saveTagFormat / saveNoteFormat | String? | 保存フォーマット（例: `ship-by-{YYYY}-{MM}-{DD}`） |
+| saveTag / saveMetafield | Boolean | タグ/メタフィールドへの保存ON/OFF |
+| saveTagFormat | String? | 保存フォーマット（例: `ship-by-{YYYY}-{MM}-{DD}`） |
 | language | String? | UI言語 |
 | shippingRates | Json | Shipping Rate キャッシュ（`id/handle/title/zoneName/enabled` の配列） |
 | createdAt / updatedAt | DateTime | timestamps |
 
 インデックス: なし（PK のみ）
+
+※ メモ保存（saveNote/saveNoteFormat）は廃止済みのため、設定画面や処理からは利用しません。
 
 ---
 

@@ -15,7 +15,6 @@ import {
 const METAFIELD_NAMESPACE = "ship_by";
 const METAFIELD_KEY = "deadline";
 const DEFAULT_TAG_FORMAT = "ship-by-{YYYY}-{MM}-{DD}";
-const DEFAULT_NOTE_FORMAT = "出荷期限：{YYYY}-{MM}-{DD}";
 
 const parseOrderId = (value: unknown): { id: string | number | null; bigInt: bigint } => {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -168,26 +167,22 @@ const saveMetafield = async (
   }
 };
 
-const saveTagsAndNote = async ({
+const saveTags = async ({
   shop,
   orderId,
   shipBy,
   payload,
   tagFormat,
-  noteFormat,
   enableTag,
-  enableNote,
 }: {
   shop: string;
   orderId: string | number;
   shipBy: Date;
   payload: unknown;
   tagFormat: string | null | undefined;
-  noteFormat: string | null | undefined;
   enableTag: boolean;
-  enableNote: boolean;
 }) => {
-  if (!enableTag && !enableNote) return;
+  if (!enableTag) return;
 
   const { session, withRetry } = await getAdminClient(shop);
   const newTag = enableTag
@@ -199,16 +194,9 @@ const saveTagsAndNote = async ({
       ? [...existingTags, newTag]
       : existingTags;
 
-  const nextNote = enableNote
-    ? formatWithTokens(noteFormat ?? DEFAULT_NOTE_FORMAT, shipBy)
-    : undefined;
-
   const body: { order: Record<string, unknown> } = { order: { id: orderId } };
   if (enableTag) {
     body.order.tags = nextTags.join(", ");
-  }
-  if (enableNote) {
-    body.order.note = nextNote;
   }
 
   const url = `https://${session.shop}/admin/api/${apiVersion}/orders/${orderId}.json`;
@@ -286,22 +274,19 @@ export const handleOrdersCreate = async (shop: string, payload: unknown) => {
     const shipBy = calcResult.value.shipBy;
     const saveMetafieldEnabled = setting?.saveMetafield !== false;
     const saveTagEnabled = setting?.saveTag === true;
-    const saveNoteEnabled = setting?.saveNote === true;
 
     if (saveMetafieldEnabled) {
       await saveMetafield(shop, orderId, shipBy);
     }
 
-    if (saveTagEnabled || saveNoteEnabled) {
-      await saveTagsAndNote({
+    if (saveTagEnabled) {
+      await saveTags({
         shop,
         orderId,
         shipBy,
         payload,
         tagFormat: setting?.saveTagFormat,
-        noteFormat: setting?.saveNoteFormat,
         enableTag: saveTagEnabled,
-        enableNote: saveNoteEnabled,
       });
     }
   } catch (error) {

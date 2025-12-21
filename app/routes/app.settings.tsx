@@ -27,9 +27,7 @@ type LoaderData = {
   deliveryFormat: string | null;
   saveMetafield: boolean;
   saveTag: boolean;
-  saveNote: boolean;
   saveTagFormat: string | null;
-  saveNoteFormat: string | null;
   deliveryCandidates: DeliveryCandidate[];
   flashMessage: {text: string; tone: "success" | "critical"} | null;
 };
@@ -106,9 +104,7 @@ export const loader = async ({request}: LoaderFunctionArgs) => {
       deliveryFormat: true,
       saveMetafield: true,
       saveTag: true,
-      saveNote: true,
       saveTagFormat: true,
-      saveNoteFormat: true,
     },
   });
 
@@ -140,9 +136,7 @@ export const loader = async ({request}: LoaderFunctionArgs) => {
     deliveryFormat: setting?.deliveryFormat ?? null,
     saveMetafield: setting?.saveMetafield ?? true,
     saveTag: setting?.saveTag ?? false,
-    saveNote: setting?.saveNote ?? false,
     saveTagFormat: setting?.saveTagFormat ?? null,
-    saveNoteFormat: setting?.saveNoteFormat ?? null,
     deliveryCandidates,
     flashMessage: flashText ? {text: flashText, tone: flashTone} : null,
   } satisfies LoaderData;
@@ -159,10 +153,8 @@ export const action = async ({request}: ActionFunctionArgs) => {
   const rawKey = String(form.get("deliveryKey") ?? "").trim();
   const rawFormat = String(form.get("deliveryFormat") ?? "").trim();
   const rawSaveTag = form.get("saveTag");
-  const rawSaveNote = form.get("saveNote");
   const rawSaveMetafield = form.get("saveMetafield");
   const rawSaveTagFormat = String(form.get("saveTagFormat") ?? "").trim();
-  const rawSaveNoteFormat = String(form.get("saveNoteFormat") ?? "").trim();
 
   const fieldErrors: NonNullable<Exclude<ActionData, {ok: true}>>["fieldErrors"] = {};
   if (!parsedDays) {
@@ -192,10 +184,8 @@ export const action = async ({request}: ActionFunctionArgs) => {
       deliveryKey: rawKey,
       deliveryFormat: rawFormat || null,
       saveTag: rawSaveTag === "on",
-      saveNote: rawSaveNote === "on",
       saveMetafield: rawSaveMetafield === "on",
       saveTagFormat: rawSaveTagFormat || null,
-      saveNoteFormat: rawSaveNoteFormat || null,
     },
     update: {
       defaultLeadDays: parsedDays,
@@ -203,10 +193,8 @@ export const action = async ({request}: ActionFunctionArgs) => {
       deliveryKey: rawKey,
       deliveryFormat: rawFormat || null,
       saveTag: rawSaveTag === "on",
-      saveNote: rawSaveNote === "on",
       saveMetafield: rawSaveMetafield === "on",
       saveTagFormat: rawSaveTagFormat || null,
-      saveNoteFormat: rawSaveNoteFormat || null,
     },
   });
 
@@ -242,9 +230,7 @@ export default function SettingsPage() {
     deliveryFormat,
     saveMetafield,
     saveTag,
-    saveNote,
     saveTagFormat,
-    saveNoteFormat,
     deliveryCandidates,
     flashMessage,
   } = useLoaderData<LoaderData>();
@@ -267,9 +253,7 @@ export default function SettingsPage() {
   const [candidateQuery, setCandidateQuery] = useState("");
   const [isSaveMetafield, setIsSaveMetafield] = useState(saveMetafield);
   const [isSaveTag, setIsSaveTag] = useState(saveTag);
-  const [isSaveNote, setIsSaveNote] = useState(saveNote);
   const [tagFormat, setTagFormat] = useState(saveTagFormat ?? "");
-  const [noteFormat, setNoteFormat] = useState(saveNoteFormat ?? "");
   const isFormReady =
     parsePositiveInt(leadDays) != null &&
     (source === "metafield" || source === "attributes") &&
@@ -402,9 +386,7 @@ export default function SettingsPage() {
     setCandidateId(matched || missingId);
     setIsSaveMetafield(saveMetafield);
     setIsSaveTag(saveTag);
-    setIsSaveNote(saveNote);
     setTagFormat(saveTagFormat ?? "");
-    setNoteFormat(saveNoteFormat ?? "");
   }, [
     defaultLeadDays,
     deliverySource,
@@ -412,9 +394,7 @@ export default function SettingsPage() {
     deliveryFormat,
     saveMetafield,
     saveTag,
-    saveNote,
     saveTagFormat,
-    saveNoteFormat,
     deliveryCandidates,
   ]);
 
@@ -604,25 +584,6 @@ export default function SettingsPage() {
               />
               {!isSaveTag ? (
                 <input type="hidden" name="saveTagFormat" value={tagFormat} />
-              ) : null}
-              <Checkbox
-                label="メモへ保存"
-                name="saveNote"
-                checked={isSaveNote}
-                onChange={setIsSaveNote}
-              />
-              <TextField
-                label="メモの保存フォーマット"
-                name="saveNoteFormat"
-                autoComplete="off"
-                value={noteFormat}
-                onChange={setNoteFormat}
-                placeholder="出荷期限：{YYYY}-{MM}-{DD}"
-                helpText="未入力の場合はデフォルトのフォーマットを使用します。"
-                disabled={!isSaveNote}
-              />
-              {!isSaveNote ? (
-                <input type="hidden" name="saveNoteFormat" value={noteFormat} />
               ) : null}
             </BlockStack>
           </Card>

@@ -28,8 +28,6 @@ async function main() {
       saveMetafield: true,
       saveTag: true,
       saveTagFormat: "ship-by-{YYYY}-{MM}-{DD}",
-      saveNote: true,
-      saveNoteFormat: "出荷期限：{YYYY}-{MM}-{DD}",
       language: "ja",
       shippingRates: [
         {
