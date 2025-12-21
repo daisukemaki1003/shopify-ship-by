@@ -1,7 +1,18 @@
-import {useEffect, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import type {ActionFunctionArgs, LoaderFunctionArgs, ShouldRevalidateFunction} from "react-router";
-import {Form, redirect, useActionData, useLoaderData, useLocation, useRevalidator} from "react-router";
-import {BlockStack, Button, Card, Checkbox, Page, Select, Text, TextField} from "@shopify/polaris";
+import {Form, redirect, useActionData, useLoaderData, useLocation} from "react-router";
+import {
+  Autocomplete,
+  BlockStack,
+  Box,
+  Button,
+  Card,
+  Checkbox,
+  Page,
+  Text,
+  TextField,
+  RadioButton,
+} from "@shopify/polaris";
 
 import prisma from "../db.server";
 import {authenticate} from "../shopify.server";
@@ -26,16 +37,17 @@ type LoaderData = {
 type ActionData =
   | {ok: true; message: string}
   | {
-      ok: false;
-      message: string;
-      fieldErrors?: {
-        defaultLeadDays?: string;
-        deliverySource?: string;
-        deliveryKey?: string;
-      };
+    ok: false;
+    message: string;
+    fieldErrors?: {
+      defaultLeadDays?: string;
+      deliverySource?: string;
+      deliveryKey?: string;
     };
+  };
 
 const DEFAULT_DATE_FORMAT = "YYYY-MM-DD";
+const missingCandidateId = (key: string) => `missing:${key}`;
 
 type DeliveryCandidate = {
   id: string;
@@ -238,18 +250,21 @@ export default function SettingsPage() {
   } = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
   const location = useLocation();
-  const revalidator = useRevalidator();
   const [leadDays, setLeadDays] = useState(defaultLeadDays ? String(defaultLeadDays) : "");
-  const [source, setSource] = useState<string>(deliverySource ?? "");
+  const initialSource = deliverySource ?? "metafield";
+  const [source, setSource] = useState<string>(initialSource);
   const [key, setKey] = useState(deliveryKey ?? "");
+  const [metafieldKey, setMetafieldKey] = useState(
+    initialSource === "metafield" ? deliveryKey ?? "" : "",
+  );
+  const [attributeKey, setAttributeKey] = useState(
+    initialSource === "attributes" ? deliveryKey ?? "" : "",
+  );
   const [format, setFormat] = useState(deliveryFormat ?? "");
   const [candidateId, setCandidateId] = useState<string>(() =>
     findCandidateId(deliveryCandidates, deliverySource, deliveryKey),
   );
-  const [showManual, setShowManual] = useState<boolean>(() => {
-    const matched = findCandidateId(deliveryCandidates, deliverySource, deliveryKey);
-    return deliveryCandidates.length === 0 || !matched;
-  });
+  const [candidateQuery, setCandidateQuery] = useState("");
   const [isSaveMetafield, setIsSaveMetafield] = useState(saveMetafield);
   const [isSaveTag, setIsSaveTag] = useState(saveTag);
   const [isSaveNote, setIsSaveNote] = useState(saveNote);
@@ -264,54 +279,127 @@ export default function SettingsPage() {
   const successMessage = bannerTone === "success" ? bannerText : null;
   const errorMessage = bannerTone === "critical" ? bannerText : null;
   const fieldErrors = actionData && !actionData.ok ? actionData.fieldErrors : undefined;
-  const candidateMap = new Map(deliveryCandidates.map((candidate) => [candidate.id, candidate]));
-  const selectedCandidate = candidateId ? candidateMap.get(candidateId) : null;
-  const isRefreshingCandidates = revalidator.state === "loading";
-  const candidateOptions = [
-    {label: "候補から選択してください", value: ""},
-    ...deliveryCandidates.map((candidate) => ({
-      label: `${candidate.source === "metafield" ? "メタフィールド" : "注文属性"}: ${candidate.key}`,
-      value: candidate.id,
-    })),
-  ];
+  const missingMetafieldCandidate = useMemo(() => {
+    if (source !== "metafield") return null;
+    const trimmedKey = key.trim();
+    if (!trimmedKey) return null;
+    const exists = deliveryCandidates.some(
+      (candidate) => candidate.source === "metafield" && candidate.key === trimmedKey,
+    );
+    if (exists) return null;
+    return {
+      id: missingCandidateId(trimmedKey),
+      source: "metafield",
+      key: trimmedKey,
+      sample: null,
+    } satisfies DeliveryCandidate;
+  }, [deliveryCandidates, key, source]);
+  const candidateMap = useMemo(
+    () => {
+      const map = new Map(deliveryCandidates.map((candidate) => [candidate.id, candidate]));
+      if (missingMetafieldCandidate) {
+        map.set(missingMetafieldCandidate.id, missingMetafieldCandidate);
+      }
+      return map;
+    },
+    [deliveryCandidates, missingMetafieldCandidate],
+  );
+  const candidateOptions = useMemo(
+    () => {
+      const base = deliveryCandidates.map((candidate) => ({
+        label: candidate.key,
+        value: candidate.id,
+      }));
+      if (!missingMetafieldCandidate) return base;
+      return [
+        {
+          label: `${missingMetafieldCandidate.key}（未検出）`,
+          value: missingMetafieldCandidate.id,
+        },
+        ...base,
+      ];
+    },
+    [deliveryCandidates, missingMetafieldCandidate],
+  );
+  const filteredCandidateOptions = useMemo(() => {
+    if (!candidateQuery.trim()) return candidateOptions;
+    const query = candidateQuery.trim().toLowerCase();
+    return candidateOptions.filter((option) => option.label.toLowerCase().includes(query));
+  }, [candidateOptions, candidateQuery]);
+  const setSourceValue = (nextSource: "metafield" | "attributes") => {
+    setSource(nextSource);
+    if (nextSource === "metafield") {
+      setKey(metafieldKey);
+      if (!format.trim()) {
+        setFormat(DEFAULT_DATE_FORMAT);
+      }
+    } else {
+      setKey(attributeKey);
+    }
+  };
 
-  const handleCandidateChange = (value: string) => {
+  const handleCandidateQueryChange = (value: string) => {
+    setCandidateQuery(value);
+    if (!candidateId) return;
+    const selected = candidateMap.get(candidateId);
+    if (!selected || selected.key !== value) {
+      setCandidateId("");
+      setMetafieldKey("");
+      if (source === "metafield") {
+        setKey("");
+      }
+    }
+  };
+
+  const handleCandidateSelect = (selected: string[]) => {
+    const value = selected[0] ?? "";
     setCandidateId(value);
     if (!value) {
-      setShowManual(true);
+      setMetafieldKey("");
+      if (source === "metafield") {
+        setKey("");
+      }
       return;
     }
     const candidate = candidateMap.get(value);
-    if (!candidate) {
-      setShowManual(true);
-      return;
-    }
-    setSource(candidate.source);
+    if (!candidate) return;
+    setSource("metafield");
+    setMetafieldKey(candidate.key);
     setKey(candidate.key);
+    setCandidateQuery(candidate.key);
     if (!format.trim()) {
       setFormat(DEFAULT_DATE_FORMAT);
     }
-    setShowManual(false);
   };
 
-  const toggleManual = () => {
-    setShowManual((current) => {
-      const next = !current;
-      if (next) {
-        setCandidateId("");
-      }
-      return next;
-    });
+  const handleCandidateClear = () => {
+    setCandidateQuery("");
+    setCandidateId("");
+    setMetafieldKey("");
+    if (source === "metafield") {
+      setKey("");
+    }
+  };
+
+  const handleAttributeKeyChange = (value: string) => {
+    setAttributeKey(value);
+    setKey(value);
   };
 
   useEffect(() => {
     setLeadDays(defaultLeadDays ? String(defaultLeadDays) : "");
-    setSource(deliverySource ?? "");
+    const nextSource = deliverySource ?? "metafield";
+    setSource(nextSource);
     setKey(deliveryKey ?? "");
+    setMetafieldKey(nextSource === "metafield" ? deliveryKey ?? "" : "");
+    setAttributeKey(nextSource === "attributes" ? deliveryKey ?? "" : "");
     setFormat(deliveryFormat ?? "");
-    const matched = findCandidateId(deliveryCandidates, deliverySource, deliveryKey);
-    setCandidateId(matched);
-    setShowManual(deliveryCandidates.length === 0 || !matched);
+    const matched = findCandidateId(deliveryCandidates, nextSource, deliveryKey);
+    const missingId =
+      nextSource === "metafield" && deliveryKey
+        ? missingCandidateId(deliveryKey.trim())
+        : "";
+    setCandidateId(matched || missingId);
     setIsSaveMetafield(saveMetafield);
     setIsSaveTag(saveTag);
     setIsSaveNote(saveNote);
@@ -331,13 +419,19 @@ export default function SettingsPage() {
   ]);
 
   useEffect(() => {
-    if (!selectedCandidate || showManual) return;
-    setSource(selectedCandidate.source);
-    setKey(selectedCandidate.key);
-    if (!format.trim()) {
-      setFormat(DEFAULT_DATE_FORMAT);
+    if (candidateId) {
+      const candidate = candidateMap.get(candidateId);
+      if (candidate) {
+        setCandidateQuery(candidate.key);
+      }
+      return;
     }
-  }, [format, selectedCandidate, showManual]);
+    if (source === "metafield" && metafieldKey) {
+      setCandidateQuery(metafieldKey);
+    } else {
+      setCandidateQuery("");
+    }
+  }, [candidateId, candidateMap, metafieldKey, source]);
 
   return (
     <Form method="post">
@@ -377,103 +471,107 @@ export default function SettingsPage() {
           </Card>
 
           <Card>
-            <BlockStack gap="200">
+            <BlockStack gap="300">
               <Text as="h2" variant="headingMd">
                 お届け希望日の取得設定（必須）
+              </Text>
+              <Text as="p" tone="subdued">
+                取得元を選び、キーと日付フォーマットを設定します。
               </Text>
               {fieldErrors?.deliverySource || fieldErrors?.deliveryKey ? (
                 <Text as="p" tone="critical">
                   {fieldErrors.deliverySource ?? fieldErrors.deliveryKey}
                 </Text>
               ) : null}
-              {deliveryCandidates.length > 0 ? (
-                <>
-                  <Select
-                    label="候補"
-                    options={candidateOptions}
-                    value={candidateId}
-                    onChange={handleCandidateChange}
-                  />
-                  {selectedCandidate ? (
-                    <Text as="p" tone="subdued">
-                      取得方法: {selectedCandidate.source === "metafield" ? "メタフィールド" : "注文属性"} / キー:{" "}
-                      {selectedCandidate.key}
-                      {selectedCandidate.sample ? ` / 例: ${selectedCandidate.sample}` : ""}
-                    </Text>
-                  ) : (
-                    <Text as="p" tone="subdued">
-                      メタフィールド定義から候補を表示しています。該当がなければ手動で入力してください。
-                    </Text>
-                  )}
-                  <Button
-                    variant="secondary"
-                    onClick={() => revalidator.revalidate()}
-                    loading={isRefreshingCandidates}
-                  >
-                    候補を再取得
-                  </Button>
-                  <Button
-                    variant="plain"
-                    onClick={toggleManual}
-                  >
-                    {showManual ? "候補選択を使う" : "手動で入力する"}
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Text as="p" tone="subdued">
-                    メタフィールド定義から候補が見つかりませんでした。手動で入力してください。
-                  </Text>
-                  <Button
-                    variant="secondary"
-                    onClick={() => revalidator.revalidate()}
-                    loading={isRefreshingCandidates}
-                  >
-                    候補を再取得
-                  </Button>
-                </>
-              )}
-              {showManual ? (
-                <>
-                  <Select
-                    label="取得方法"
+              <BlockStack gap="300">
+                <BlockStack gap="200">
+                  <RadioButton
+                    label="メタフィールド"
                     name="deliverySource"
-                    options={[
-                      {label: "選択してください", value: ""},
-                      {label: "メタフィールド", value: "metafield"},
-                      {label: "注文属性（attributes）", value: "attributes"},
-                    ]}
-                    value={source}
-                    onChange={setSource}
-                    error={fieldErrors?.deliverySource}
+                    checked={source === "metafield"}
+                    onChange={(checked) => {
+                      if (checked) setSourceValue("metafield");
+                    }}
                   />
-                  <TextField
-                    label="取得キー"
-                    name="deliveryKey"
-                    autoComplete="off"
-                    value={key}
-                    onChange={setKey}
-                    placeholder="shipping.requested_date"
-                    helpText="メタフィールドの場合は namespace.key の形式で入力してください。"
-                    error={fieldErrors?.deliveryKey}
+                  {source === "metafield" ? (
+                    <Box paddingInlineStart="400">
+                      <BlockStack gap="100">
+                        <Autocomplete
+                          options={filteredCandidateOptions}
+                          selected={candidateId ? [candidateId] : []}
+                          textField={
+                            <Autocomplete.TextField
+                              label=""
+                              value={candidateQuery}
+                              onChange={handleCandidateQueryChange}
+                              placeholder="shipping.requested_date"
+                              autoComplete="off"
+                              clearButton
+                              onClearButtonClick={handleCandidateClear}
+                            />
+                          }
+                          onSelect={handleCandidateSelect}
+                          emptyState={
+                            <Text as="p" tone="subdued">
+                              候補が見つかりませんでした。メタフィールド定義を追加してください。
+                            </Text>
+                          }
+                        />
+                        {missingMetafieldCandidate ? (
+                          <Text as="p" tone="critical">
+                            現在の設定「{missingMetafieldCandidate.key}」はメタフィールド定義に見つかりません。
+                          </Text>
+                        ) : null}
+                        {fieldErrors?.deliveryKey ? (
+                          <Text as="p" tone="critical">
+                            {fieldErrors.deliveryKey}
+                          </Text>
+                        ) : null}
+                        <Text as="p" tone="subdued">
+                          メタフィールド定義から候補を表示しています。
+                        </Text>
+                      </BlockStack>
+                    </Box>
+                  ) : null}
+                </BlockStack>
+                <BlockStack gap="200">
+                  <RadioButton
+                    label="注文属性（attributes）"
+                    name="deliverySource"
+                    checked={source === "attributes"}
+                    onChange={(checked) => {
+                      if (checked) setSourceValue("attributes");
+                    }}
                   />
-                  <TextField
-                    label="日付パースフォーマット"
-                    name="deliveryFormat"
-                    autoComplete="off"
-                    value={format}
-                    onChange={setFormat}
-                    placeholder={DEFAULT_DATE_FORMAT}
-                    helpText={`未入力の場合は ${DEFAULT_DATE_FORMAT} を使用します。`}
-                  />
-                </>
-              ) : (
-                <>
-                  <input type="hidden" name="deliverySource" value={source} />
-                  <input type="hidden" name="deliveryKey" value={key} />
-                  <input type="hidden" name="deliveryFormat" value={format} />
-                </>
-              )}
+                  {source === "attributes" ? (
+                    <Box paddingInlineStart="400">
+                      <BlockStack gap="200">
+                        <TextField
+                          label=""
+                          autoComplete="off"
+                          value={attributeKey}
+                          onChange={handleAttributeKeyChange}
+                          placeholder="requested_date"
+                          helpText="注文属性（attributes）に保存されたキー名を入力してください。"
+                          error={fieldErrors?.deliveryKey}
+                          requiredIndicator
+                        />
+                      </BlockStack>
+                    </Box>
+                  ) : null}
+                </BlockStack>
+              </BlockStack>
+              <TextField
+                label="日付パースフォーマット"
+                autoComplete="off"
+                value={format}
+                onChange={setFormat}
+                placeholder={DEFAULT_DATE_FORMAT}
+                helpText={`未入力の場合は ${DEFAULT_DATE_FORMAT} を使用します。`}
+              />
+              <input type="hidden" name="deliverySource" value={source} />
+              <input type="hidden" name="deliveryKey" value={key} />
+              <input type="hidden" name="deliveryFormat" value={format} />
             </BlockStack>
           </Card>
 
