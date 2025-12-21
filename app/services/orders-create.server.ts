@@ -31,6 +31,7 @@ const extractShopSetting = (setting: ShopSetting | null): ShopSettingLike => ({
   deliverySource: setting?.deliverySource ?? null,
   deliveryKey: setting?.deliveryKey ?? null,
   deliveryFormat: setting?.deliveryFormat ?? null,
+  defaultLeadDays: setting?.defaultLeadDays ?? null,
   shippingRates: (setting?.shippingRates ?? []) as ShopSettingLike["shippingRates"],
   language: setting?.language ?? null,
 });

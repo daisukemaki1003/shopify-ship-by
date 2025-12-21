@@ -173,3 +173,34 @@ test("配送ケース不一致ならno_ruleエラー", () => {
   if (result.ok) return;
   assert.equal(result.error, "no_rule");
 });
+
+test("ルールがない場合は全体設定の日数を採用する", () => {
+  const order = {
+    id: 5,
+    shipping_lines: [{ code: "yamato_cool", id: "sr_yamato_cool" }],
+    metafields: [
+      {
+        namespace: "shipping",
+        key: "requested_date",
+        value: "2025-05-10",
+      },
+    ],
+  };
+
+  const result = calculateShipBy({
+    order,
+    rules: [],
+    shopSetting: {
+      ...baseSetting,
+      defaultLeadDays: 2,
+    },
+    holiday: { holidays: [], weeklyHolidays: [] },
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) throw new Error("calculation failed");
+
+  assert.equal(result.value.adoptDays, 2);
+  assert.deepEqual(result.value.matchedRuleIds, []);
+  assert.equal(toISODate(result.value.shipBy), "2025-05-08");
+});

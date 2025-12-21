@@ -15,6 +15,7 @@ export type ZoneRuleDetailData = {
   rates: ShippingRateEntry[];
   base: {id: string; days: number} | null;
   productRules: ProductRuleWithProducts[];
+  defaultLeadDays: number | null;
 };
 
 // 配列を指定サイズで分割するユーティリティ
@@ -132,6 +133,10 @@ export const loadZoneRuleDetail = async ({
     }
   });
   const rules = Array.from(rulesById.values());
+  const setting = await prisma.shopSetting.findUnique({
+    where: {shopId},
+    select: {defaultLeadDays: true},
+  });
 
   const baseRule = rules
     .filter((rule) => rule.targetType === RuleTargetType.all)
@@ -166,6 +171,7 @@ export const loadZoneRuleDetail = async ({
     rates,
     base: baseRule ? {id: baseRule.id, days: baseRule.days} : null,
     productRules,
+    defaultLeadDays: setting?.defaultLeadDays ?? null,
   };
 };
 
@@ -180,15 +186,19 @@ export type ZoneRulePayload = {
 export const normalizeZoneRulePayload = (
   payload: ZoneRulePayload | null,
   expectedZoneKey: string,
-): {ok: false; message: string} | {ok: true; baseDays: number; productRules: ProductRule[]} => {
+): {ok: false; message: string} | {ok: true; baseDays: number | null; productRules: ProductRule[]} => {
   if (!payload || payload.zoneKey !== expectedZoneKey) {
     return {ok: false, message: "配送エリアが一致しません"};
   }
 
   const errors: string[] = [];
-  const parsedBaseDays = parsePositiveInt(payload.base.days);
-  if (!parsedBaseDays) {
-    errors.push("基本設定の出荷リードタイムは1以上の整数で入力してください");
+  const rawBaseDays = String(payload.base.days ?? "").trim();
+  let parsedBaseDays: number | null = null;
+  if (rawBaseDays !== "") {
+    parsedBaseDays = parsePositiveInt(rawBaseDays);
+    if (!parsedBaseDays) {
+      errors.push("基本設定の出荷リードタイムは1以上の整数で入力してください");
+    }
   }
 
   const normalizedProductRules: ProductRule[] = payload.productRules.map((rule, idx) => {
@@ -209,7 +219,7 @@ export const normalizeZoneRulePayload = (
 
   return {
     ok: true,
-    baseDays: parsedBaseDays ?? 1,
+    baseDays: parsedBaseDays,
     productRules: normalizedProductRules,
   };
 };
@@ -225,7 +235,7 @@ export const persistZoneRulePayload = async ({
   shopId: string;
   zoneKey: string;
   baseId: string | null;
-  baseDays: number;
+  baseDays: number | null;
   productRules: ProductRule[];
 }) => {
   const {rates} = await resolveZoneRates({shopId, zoneKey});
@@ -251,20 +261,39 @@ export const persistZoneRulePayload = async ({
     );
   };
 
-  if (baseId) {
-    await prisma.rule.updateMany({where: {id: baseId, shopId}, data: {days: baseDays}});
-    await ensureLinksForAllRates(baseId);
-  } else {
-    const created = await prisma.rule.create({
-      data: {
+  if (baseDays != null) {
+    if (baseId) {
+      await prisma.rule.updateMany({where: {id: baseId, shopId}, data: {days: baseDays}});
+      await ensureLinksForAllRates(baseId);
+    } else {
+      const created = await prisma.rule.create({
+        data: {
+          shopId,
+          targetType: "all",
+          targetId: null,
+          days: baseDays,
+        },
+      });
+
+      await ensureLinksForAllRates(created.id);
+    }
+  } else if (baseId) {
+    await prisma.ruleShippingRate.deleteMany({
+      where: {
         shopId,
-        targetType: "all",
-        targetId: null,
-        days: baseDays,
+        shippingRateShopId: shopId,
+        shippingRateId: {in: rateIds},
+        ruleId: baseId,
       },
     });
 
-    await ensureLinksForAllRates(created.id);
+    const remaining = await prisma.ruleShippingRate.findFirst({
+      where: {shopId, ruleId: baseId},
+      select: {ruleId: true},
+    });
+    if (!remaining) {
+      await prisma.rule.deleteMany({where: {shopId, id: baseId}});
+    }
   }
 
   const incomingIds = new Set(productRules.map((r) => r.id).filter(Boolean) as string[]);

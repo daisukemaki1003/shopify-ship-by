@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useState} from "react";
-import type {ActionFunctionArgs, LoaderFunctionArgs} from "react-router";
+import type {ActionFunctionArgs, LoaderFunctionArgs, ShouldRevalidateFunction} from "react-router";
 import {Form, redirect, useActionData, useLoaderData} from "react-router";
 import {
   Banner,
@@ -12,6 +12,7 @@ import {
   TextField,
 } from "@shopify/polaris";
 
+import prisma from "../db.server";
 import {authenticate} from "../shopify.server";
 import {
   loadZoneRuleDetail,
@@ -20,7 +21,7 @@ import {
   type ZoneRulePayload,
   type ZoneRuleDetailData,
 } from "../services/rules.server";
-import {DEFAULT_BASE_DAYS} from "../utils/rules";
+import {DEFAULT_PRODUCT_DAYS} from "../utils/rules";
 import {
   selectionToProductSummary,
   toFallbackProduct,
@@ -31,6 +32,8 @@ import type {
   ProductRuleWithProducts,
   ProductSummary,
 } from "../utils/rule-types";
+import {useAppBridge} from "@shopify/app-bridge-react";
+
 import {ProductPreviewPills} from "app/components/ProductPreviewPills";
 import {toZoneLabel} from "../utils/shipping-zones";
 
@@ -85,6 +88,13 @@ export const loader = async ({request, params}: LoaderFunctionArgs) => {
 // フォームから送信された出荷ルールを検証・保存する
 export const action = async ({request, params}: ActionFunctionArgs) => {
   const {session} = await authenticate.admin(request);
+  const setting = await prisma.shopSetting.findUnique({
+    where: {shopId: session.shop},
+    select: {defaultLeadDays: true},
+  });
+  if (!setting?.defaultLeadDays || setting.defaultLeadDays <= 0) {
+    return {ok: false, message: "全体設定が未完了のため保存できません"} satisfies ActionData;
+  }
   const zoneKey = params.zoneKey ?? "";
   const form = await request.formData();
   const actionType = String(form.get("_action") ?? "");
@@ -120,6 +130,22 @@ export const action = async ({request, params}: ActionFunctionArgs) => {
   );
 };
 
+export const shouldRevalidate: ShouldRevalidateFunction = ({
+  actionResult,
+  defaultShouldRevalidate,
+}) => {
+  if (
+    actionResult &&
+    typeof actionResult === "object" &&
+    "ok" in actionResult &&
+    "message" in actionResult &&
+    (actionResult as ActionData).ok === false
+  ) {
+    return false;
+  }
+  return defaultShouldRevalidate;
+};
+
 // 画面側で一意に識別するためのclientIdを付与した編集用ルール
 type EditableProductRule = ProductRuleWithProducts & {
   clientId: string;
@@ -127,10 +153,20 @@ type EditableProductRule = ProductRuleWithProducts & {
 
 // 配送レートごとの出荷ルール詳細・編集ページ
 export default function RuleDetailPage() {
-  const {zone, rates, base, productRules, flashMessage} = useLoaderData<LoaderData>();
+  const {zone, rates, base, productRules, flashMessage, defaultLeadDays} = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
-  const baseDaysFromLoader = base ? String(base.days) : DEFAULT_BASE_DAYS;
+  const shopify = useAppBridge();
+  const baseDaysFromLoader = base ? String(base.days) : "";
   const [baseDays, setBaseDays] = useState<string>(baseDaysFromLoader);
+  const isSettingsReady = defaultLeadDays != null && defaultLeadDays > 0;
+  const bannerText = actionData?.message ?? flashMessage?.text;
+  const bannerTone = actionData ? "critical" : flashMessage?.tone ?? "success";
+
+  useEffect(() => {
+    if (bannerText && bannerTone === "success") {
+      shopify.toast.show(bannerText, {duration: 5000});
+    }
+  }, [bannerText, bannerTone, shopify]);
 
   // ID配列を商品サマリーに変換し、欠損時はダミーで補完する
   const withProductsForIds = (productIds: string[], products: ProductSummary[]) => {
@@ -174,11 +210,12 @@ export default function RuleDetailPage() {
       }
       const result = await picker({
         type: "product",
+        action: "select",
         multiple: true,
         filter: {variants: false},
         selectionIds: productRows[index]?.productIds?.map((id) => ({id})),
-        initialSelectionIds: productRows[index]?.productIds?.map((id) => ({id})),
       });
+      if (!result) return;
       const selectionItems = Array.isArray(result) ? result : result?.selection ?? [];
       const isProductId = (value: any) => {
         if (!value) return false;
@@ -197,7 +234,6 @@ export default function RuleDetailPage() {
             .filter((value) => isProductId(value)),
         ),
       ).map(String);
-      if (ids.length === 0) return;
       setProductRows((prev) =>
         prev.map((row, idx) => {
           if (idx !== index) return row;
@@ -225,7 +261,7 @@ export default function RuleDetailPage() {
         clientId: `new-${Date.now()}`,
         productIds: [],
         products: [],
-        days: Number.parseInt(DEFAULT_BASE_DAYS, 10),
+        days: DEFAULT_PRODUCT_DAYS,
       },
     ]);
   };
@@ -242,9 +278,6 @@ export default function RuleDetailPage() {
     );
   };
 
-  const bannerText = actionData?.message ?? flashMessage?.text;
-  const bannerTone = actionData ? "critical" : flashMessage?.tone ?? "success";
-
   return (
     <Form
       method="post"
@@ -256,19 +289,26 @@ export default function RuleDetailPage() {
       <Page
         title={`出荷ルール詳細 / ${toZoneLabel(zone.name)}`}
         backAction={{content: "一覧に戻る", url: "/app/rules"}}
-        primaryAction={<Button submit variant="primary">保存</Button>}
+        primaryAction={
+          <Button submit variant="primary" disabled={!isSettingsReady}>
+            保存
+          </Button>
+        }
       >
         <BlockStack gap="400">
-          <Card>
-            <BlockStack gap="100">
-              <Text as="p" tone="subdued">
-                対象配送ケース: {rates.length} 件
-              </Text>
-            </BlockStack>
-          </Card>
-          {bannerText ? (
+          {bannerText && bannerTone === "critical" ? (
             <Banner tone={bannerTone}>
               <p>{bannerText}</p>
+            </Banner>
+          ) : null}
+          {!isSettingsReady ? (
+            <Banner tone="critical">
+              <BlockStack gap="200">
+                <Text as="p">全体設定が未完了のため保存できません。</Text>
+                <div>
+                  <Button url="/app/settings">全体設定へ</Button>
+                </div>
+              </BlockStack>
             </Banner>
           ) : null}
 
@@ -277,11 +317,19 @@ export default function RuleDetailPage() {
               <Text as="h2" variant="headingMd">
                 基本設定
               </Text>
+              <Text as="p" tone="subdued">
+                全体設定: {defaultLeadDays != null ? `${defaultLeadDays}日` : "未設定"}（未入力の場合に適用）
+              </Text>
               <TextField
                 label="出荷リードタイム（日）"
                 autoComplete="off"
+                type="number"
+                min={1}
                 value={baseDays}
-                onChange={(value) => setBaseDays(value || DEFAULT_BASE_DAYS)}
+                onChange={setBaseDays}
+                suffix="日"
+                helpText="未入力の場合は全体設定が適用されます。"
+                disabled={!isSettingsReady}
               />
             </BlockStack>
           </Card>
@@ -308,7 +356,8 @@ export default function RuleDetailPage() {
                           <div style={{marginTop: 2}}>
                             <ProductPreviewPills
                               products={withProductsForIds(row.productIds, row.products)}
-                              onClick={() => openProductPicker(index)}
+                              onClick={isSettingsReady ? () => openProductPicker(index) : undefined}
+                              disabled={!isSettingsReady}
                             />
                           </div>
                         </div>
@@ -316,11 +365,16 @@ export default function RuleDetailPage() {
                         <TextField
                           label="出荷リードタイム（日）"
                           autoComplete="off"
+                          type="number"
+                          min={1}
+                          requiredIndicator
                           value={String(row.days)}
                           onChange={(value) => {
                             const parsed = parsePositiveInt(value);
                             updateProductRule(row.clientId, {days: parsed ?? 1});
                           }}
+                          suffix="日"
+                          disabled={!isSettingsReady}
                         />
 
                         <InlineStack align="end">
@@ -328,6 +382,7 @@ export default function RuleDetailPage() {
                             tone="critical"
                             variant="tertiary"
                             onClick={() => removeProductRule(row.clientId)}
+                            disabled={!isSettingsReady}
                           >
                             削除
                           </Button>
@@ -339,7 +394,7 @@ export default function RuleDetailPage() {
               )}
 
               <InlineStack align="start">
-                <Button variant="secondary" onClick={addProductRule}>
+                <Button variant="secondary" onClick={addProductRule} disabled={!isSettingsReady}>
                   商品別設定を追加
                 </Button>
               </InlineStack>

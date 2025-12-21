@@ -101,6 +101,7 @@ model ShopSetting {
   deliverySource         DeliverySource?
   deliveryKey            String?
   deliveryFormat         String?
+  defaultLeadDays        Int?
   saveTag                Boolean         @default(false)
   saveTagFormat          String?
   saveNote               Boolean         @default(false)

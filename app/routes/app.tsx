@@ -91,6 +91,7 @@ export default function App() {
         <NavMenu>
           <a href="/app">Home</a>
           <a href="/app/additional">Additional page</a>
+          <a href="/app/settings">全体設定</a>
           <a href="/app/rules">出荷ルール</a>
         </NavMenu>
         <Outlet />

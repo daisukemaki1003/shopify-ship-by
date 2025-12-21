@@ -7,11 +7,14 @@ import type {ProductSummary} from "../utils/rule-types";
 export function ProductPreviewPills({
   products,
   onClick,
+  disabled,
 }: {
   products: ProductSummary[];
   onClick?: () => void;
+  disabled?: boolean;
 }) {
   const hasProducts = products.length > 0;
+  const isDisabled = Boolean(disabled);
   const content = hasProducts ? (
     <InlineStack gap="100" wrap>
       {products.map((product) => (
@@ -68,6 +71,7 @@ export function ProductPreviewPills({
   return (
     <UnstyledButton
       onClick={onClick}
+      disabled={isDisabled}
       accessibilityLabel={hasProducts ? "商品を変更" : "商品を選択"}
       style={{
         width: "100%",
@@ -75,10 +79,11 @@ export function ProductPreviewPills({
         padding: "3px",
         margin: 0,
         textAlign: "left",
-        cursor: "pointer",
-        background: "transparent",
+        cursor: isDisabled ? "not-allowed" : "pointer",
+        background: isDisabled ? "#f3f3f3" : "transparent",
         border: "1px solid #ccc",
         borderRadius: "var(--p-border-radius-200)",
+        opacity: isDisabled ? 0.6 : 1,
       }}
     >
       {content}
@@ -87,4 +92,3 @@ export function ProductPreviewPills({
     </UnstyledButton>
   );
 }
-

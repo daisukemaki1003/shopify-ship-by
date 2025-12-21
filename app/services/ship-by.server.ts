@@ -11,6 +11,7 @@ export type ShopSettingLike = {
   deliverySource?: DeliverySource | null;
   deliveryKey?: string | null;
   deliveryFormat?: string | null;
+  defaultLeadDays?: number | null;
   shippingRates?: ShippingRateLike[] | null;
   language?: string | null;
 };
@@ -380,7 +381,27 @@ export const calculateShipBy = (input: {
     productIds,
   });
 
-  if (!ruleResult.ok) return ruleResult;
+  if (!ruleResult.ok) {
+    const fallbackDays = input.shopSetting.defaultLeadDays;
+    if (ruleResult.error === "no_rule" && fallbackDays && fallbackDays > 0) {
+      const baseShipBy = addDays(deliveryResult.value, -fallbackDays);
+      const adjustedResult = adjustForHolidays(baseShipBy, input.holiday);
+      if (!adjustedResult.ok) return adjustedResult;
+
+      return {
+        ok: true,
+        value: {
+          shipBy: adjustedResult.value,
+          deliveryDate: deliveryResult.value,
+          adoptDays: fallbackDays,
+          shippingRateId: shippingRateResult.value,
+          matchedRuleIds: [],
+          adjustedFrom: baseShipBy,
+        },
+      };
+    }
+    return ruleResult;
+  }
 
   const baseShipBy = addDays(deliveryResult.value, -ruleResult.value.days);
   const adjustedResult = adjustForHolidays(baseShipBy, input.holiday);

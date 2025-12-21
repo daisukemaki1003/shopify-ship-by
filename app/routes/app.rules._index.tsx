@@ -1,4 +1,4 @@
-import {useCallback, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 import type {ActionFunctionArgs} from "react-router";
 import {redirect, useFetcher, useLoaderData, useLocation, useNavigate} from "react-router";
 import {
@@ -15,10 +15,11 @@ import {
   Text,
   useIndexResourceState,
 } from "@shopify/polaris";
+import {useAppBridge} from "@shopify/app-bridge-react";
 
 import prisma from "../db.server";
 import {authenticate} from "../shopify.server";
-import {getShippingRates, type ShippingRateEntry} from "../services/shipping-rates.server";
+import {getShippingRates} from "../services/shipping-rates.server";
 import {toZoneKey, toZoneLabel} from "../utils/shipping-zones";
 import {BulkAction} from "@shopify/polaris/build/ts/src/components/BulkActions";
 
@@ -34,6 +35,7 @@ type LoaderData = {
   configuredSummaries: ZoneRuleSummary[];
   allZones: Array<{zoneKey: string; zoneName: string | null; shippingRateCount: number}>;
   flashMessage: {text: string; tone: "success" | "critical"} | null;
+  defaultLeadDays: number | null;
 };
 
 type ActionData = {ok: true} | {ok: false; message: string};
@@ -43,12 +45,16 @@ export const loader = async ({request}: {request: Request}) => {
   const url = new URL(request.url);
   const flashText = url.searchParams.get("message");
   const flashTone = url.searchParams.get("tone") === "critical" ? "critical" : "success";
-  const [rates, links] = await Promise.all([
+  const [rates, links, setting] = await Promise.all([
     getShippingRates(session.shop),
     prisma.ruleShippingRate.findMany({
       where: {shopId: session.shop},
       include: {rule: true},
       orderBy: {createdAt: "desc"},
+    }),
+    prisma.shopSetting.findUnique({
+      where: {shopId: session.shop},
+      select: {defaultLeadDays: true},
     }),
   ]);
 
@@ -114,6 +120,7 @@ export const loader = async ({request}: {request: Request}) => {
       toZoneLabel(a.zoneName).localeCompare(toZoneLabel(b.zoneName), "ja"),
     ),
     flashMessage: flashText ? {text: flashText, tone: flashTone} : null,
+    defaultLeadDays: setting?.defaultLeadDays ?? null,
   } satisfies LoaderData;
 };
 
@@ -121,6 +128,16 @@ export const action = async ({request}: ActionFunctionArgs) => {
   const {session} = await authenticate.admin(request);
   const url = new URL(request.url);
   const host = url.searchParams.get("host");
+  const setting = await prisma.shopSetting.findUnique({
+    where: {shopId: session.shop},
+    select: {defaultLeadDays: true},
+  });
+  if (!setting?.defaultLeadDays || setting.defaultLeadDays <= 0) {
+    const redirectUrl = host
+      ? `/app/rules?host=${encodeURIComponent(host)}&message=${encodeURIComponent("全体設定が未完了のため操作できません")}&tone=critical`
+      : `/app/rules?message=${encodeURIComponent("全体設定が未完了のため操作できません")}&tone=critical`;
+    return redirect(redirectUrl);
+  }
   const form = await request.formData();
   const actionType = String(form.get("_action") ?? "");
 
@@ -188,15 +205,23 @@ export const action = async ({request}: ActionFunctionArgs) => {
 };
 
 export default function RulesIndexPage() {
-  const {configuredSummaries, allZones, flashMessage} = useLoaderData<LoaderData>();
+  const {configuredSummaries, allZones, flashMessage, defaultLeadDays} = useLoaderData<LoaderData>();
   const navigate = useNavigate();
   const location = useLocation();
   const fetcher = useFetcher<ActionData>();
+  const shopify = useAppBridge();
+  const isSettingsReady = defaultLeadDays != null && defaultLeadDays > 0;
   const resourceName = useMemo(
     () => ({singular: "shipping rule", plural: "shipping rules"}),
     [],
   );
   const host = useMemo(() => new URLSearchParams(location.search).get("host"), [location.search]);
+
+  useEffect(() => {
+    if (flashMessage?.tone === "success") {
+      shopify.toast.show(flashMessage.text, {duration: 5000});
+    }
+  }, [flashMessage, shopify]);
 
   const toDetailUrl = useCallback(
     (zoneKey: string) => {
@@ -241,10 +266,11 @@ export default function RulesIndexPage() {
   const closeAddModal = useCallback(() => setAddModalOpen(false), []);
 
   const addSelectedZone = useCallback(() => {
+    if (!isSettingsReady) return;
     if (!selectedZoneKey) return;
     closeAddModal();
     navigate(toDetailUrl(selectedZoneKey));
-  }, [closeAddModal, navigate, selectedZoneKey, toDetailUrl]);
+  }, [closeAddModal, isSettingsReady, navigate, selectedZoneKey, toDetailUrl]);
 
   const {
     selectedResources: selectedZoneKeys,
@@ -272,15 +298,29 @@ export default function RulesIndexPage() {
     <Page
       title="出荷ルール（配送エリア別）"
       primaryAction={
-        <Button onClick={openAddModal} variant="primary">
+        <Button onClick={openAddModal} variant="primary" disabled={!isSettingsReady}>
           配送エリアを追加
         </Button>
       }
     >
-      {flashMessage ? (
-        <Banner tone={flashMessage.tone}>
-          <p>{flashMessage.text}</p>
-        </Banner>
+      {flashMessage && flashMessage.tone === "critical" ? (
+        <div style={{marginBottom: 16}}>
+          <Banner tone={flashMessage.tone}>
+            <p>{flashMessage.text}</p>
+          </Banner>
+        </div>
+      ) : null}
+      {!isSettingsReady ? (
+        <div style={{marginBottom: 16}}>
+          <Banner tone="critical">
+            <BlockStack gap="200">
+              <Text as="p">全体設定が未完了のため操作できません。</Text>
+              <div>
+                <Button url="/app/settings">全体設定へ</Button>
+              </div>
+            </BlockStack>
+          </Banner>
+        </div>
       ) : null}
 
       <Modal
@@ -290,7 +330,7 @@ export default function RulesIndexPage() {
         primaryAction={{
           content: "設定する",
           onAction: addSelectedZone,
-          disabled: availableOptions.length === 0 || !selectedZoneKey,
+          disabled: !isSettingsReady || availableOptions.length === 0 || !selectedZoneKey,
         }}
         secondaryActions={[{content: "キャンセル", onAction: closeAddModal}]}
       >
@@ -318,7 +358,7 @@ export default function RulesIndexPage() {
             <BlockStack gap="300">
               <Text as="p">まだ配送エリアが追加されていません。</Text>
               <div>
-                <Button onClick={openAddModal} variant="primary">
+                <Button onClick={openAddModal} variant="primary" disabled={!isSettingsReady}>
                   配送エリアを追加
                 </Button>
               </div>
@@ -336,7 +376,7 @@ export default function RulesIndexPage() {
                 content: "エリアを削除する",
                 destructive: true,
                 onAction: openDeleteModal,
-                disabled: selectedZoneKeys.length === 0,
+                disabled: !isSettingsReady || selectedZoneKeys.length === 0,
               } as BulkAction]}
               headings={[
                 {title: "配送エリア"},
@@ -346,7 +386,12 @@ export default function RulesIndexPage() {
               ]}
             >
               {configuredSummaries.map((summary, index) => {
-                const baseText = summary.baseDays != null ? `${summary.baseDays} 日` : "未設定";
+                const baseText =
+                  summary.baseDays != null
+                    ? `${summary.baseDays} 日`
+                    : defaultLeadDays != null
+                      ? `全体設定 (${defaultLeadDays} 日)`
+                      : "未設定";
                 const individualText = `${summary.individualCount} 件`;
                 const rateCountText = `${summary.shippingRateCount} 件`;
                 return (
@@ -394,7 +439,7 @@ export default function RulesIndexPage() {
           content: "削除する",
           destructive: true,
           onAction: submitDelete,
-          disabled: selectedZoneKeys.length === 0,
+          disabled: !isSettingsReady || selectedZoneKeys.length === 0,
         }}
         secondaryActions={[{content: "キャンセル", onAction: closeDeleteModal}]}
       >
