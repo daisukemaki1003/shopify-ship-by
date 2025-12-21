@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useState} from "react";
 import type {ActionFunctionArgs, LoaderFunctionArgs, ShouldRevalidateFunction} from "react-router";
-import {Form, redirect, useActionData, useLoaderData} from "react-router";
+import {Form, redirect, useActionData, useLoaderData, useLocation} from "react-router";
 import {
   BlockStack,
   Button,
@@ -155,6 +155,7 @@ type EditableProductRule = ProductRuleWithProducts & {
 export default function RuleDetailPage() {
   const {zone, rates, base, productRules, flashMessage, defaultLeadDays} = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
+  const location = useLocation();
   const baseDaysFromLoader = base ? String(base.days) : "";
   const [baseDays, setBaseDays] = useState<string>(baseDaysFromLoader);
   const isSettingsReady = defaultLeadDays != null && defaultLeadDays > 0;
@@ -291,7 +292,7 @@ export default function RuleDetailPage() {
         }
       >
         <BlockStack gap="400">
-          <SuccessToast message={successMessage} />
+          <SuccessToast message={successMessage} nonce={location.key} />
           <CriticalBanner message={errorMessage} />
           {!isSettingsReady ? (
             <SettingsRequiredBanner message="全体設定が未完了のため保存できません。" />

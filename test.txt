@@ -1,0 +1,271 @@
+23:05:10 │              React Router │ [settings] failed to load delivery candidates GraphqlQueryError: This app is not approved to access the
+Order object. See https://shopify.dev/docs/apps/launch/protected-customer-data for more details.
+23:05:10 │              React Router │     at throwFailedRequest (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%97%A5/s
+hip-by/node_modules/@shopify/shopify-api/dist/esm/lib/clients/common.mjs:88:15)
+23:05:10 │              React Router │     at NewGraphqlClient.request (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%9
+7%A5/ship-by/node_modules/@shopify/shopify-api/dist/esm/lib/clients/admin/graphql/client.mjs:70:13)
+23:05:10 │              React Router │     at processTicksAndRejections (node:internal/process/task_queues:95:5)
+23:05:10 │              React Router │     at Object.query [as graphql] (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%
+97%A5/ship-by/node_modules/@shopify/shopify-app-react-router/dist/esm/server/clients/admin/graphql.mjs:13:33)
+23:05:10 │              React Router │     at loader
+(/Users/makidaisuke/Desktop/Workspace/Shopify/出荷日/ship-by/app/routes/app.settings.tsx:94:22)
+23:05:10 │              React Router │     at callRouteHandler (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%97%A5/shi
+p-by/node_modules/react-router/dist/development/chunk-G3INQAYP.mjs:506:16)
+23:05:10 │              React Router │     at commonRoute.loader (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%97%A5/s
+hip-by/node_modules/react-router/dist/development/chunk-G3INQAYP.mjs:656:19)
+23:05:10 │              React Router │     at file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%97%A5/ship-by/node_modules/
+react-router/dist/development/chunk-4WY6JWTD.mjs:4663:19
+23:05:10 │              React Router │     at callLoaderOrAction (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%97%A5/s
+hip-by/node_modules/react-router/dist/development/chunk-4WY6JWTD.mjs:4715:16)
+23:05:10 │              React Router │     at async Promise.all (index 1)
+23:05:10 │              React Router │     at defaultDataStrategy (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%97%A5/
+ship-by/node_modules/react-router/dist/development/chunk-4WY6JWTD.mjs:4350:17)
+23:05:10 │              React Router │     at callDataStrategyImpl (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%97%A5
+/ship-by/node_modules/react-router/dist/development/chunk-4WY6JWTD.mjs:4609:17)
+23:05:10 │              React Router │     at callDataStrategy (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%97%A5/shi
+p-by/node_modules/react-router/dist/development/chunk-4WY6JWTD.mjs:3677:19)
+23:05:10 │              React Router │     at loadRouteData (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%97%A5/ship-b
+y/node_modules/react-router/dist/development/chunk-4WY6JWTD.mjs:3654:19)
+23:05:10 │              React Router │     at queryImpl (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%97%A5/ship-by/no
+de_modules/react-router/dist/development/chunk-4WY6JWTD.mjs:3429:20)
+23:05:10 │              React Router │     at Object.query (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%97%A5/ship-by
+/node_modules/react-router/dist/development/chunk-4WY6JWTD.mjs:3291:18)
+23:05:10 │              React Router │     at singleFetchLoaders (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%97%A5/s
+hip-by/node_modules/react-router/dist/development/chunk-G3INQAYP.mjs:833:18)
+23:05:10 │              React Router │     at handleSingleFetchRequest (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%9
+7%A5/ship-by/node_modules/react-router/dist/development/chunk-G3INQAYP.mjs:1291:7)
+23:05:10 │              React Router │     at requestHandler (file:///Users/makidaisuke/Desktop/Workspace/Shopify/%E5%87%BA%E8%8D%B7%E6%97%A5/ship-
+by/node_modules/react-router/dist/development/chunk-G3INQAYP.mjs:1126:18)
+23:05:10 │              React Router │     at nodeHandler
+(/Users/makidaisuke/Desktop/Workspace/Shopify/出荷日/ship-by/node_modules/@react-router/dev/dist/vite.js:3490:30)
+23:05:10 │              React Router │     at
+/Users/makidaisuke/Desktop/Workspace/Shopify/出荷日/ship-by/node_modules/@react-router/dev/dist/vite.js:3496:17 {
+23:05:10 │              React Router │   response: Response {
+23:05:10 │              React Router │     status: 200,
+23:05:10 │              React Router │     statusText: 'OK',
+23:05:10 │              React Router │     headers: Headers {
+23:05:10 │              React Router │       date: 'Sun, 21 Dec 2025 14:05:10 GMT',
+23:05:10 │              React Router │       'content-type': 'application/json; charset=utf-8',
+23:05:10 │              React Router │       'transfer-encoding': 'chunked',
+23:05:10 │              React Router │       connection: 'keep-alive',
+23:05:10 │              React Router │       'x-sorting-hat-podid': '215',
+23:05:10 │              React Router │       'x-sorting-hat-shopid': '78909636824',
+23:05:10 │              React Router │       vary: 'Accept-Encoding',
+23:05:10 │              React Router │       'referrer-policy': 'origin-when-cross-origin',
+23:05:10 │              React Router │       'x-frame-options': 'DENY',
+23:05:10 │              React Router │       'x-shopid': '78909636824',
+23:05:10 │              React Router │       'x-shardid': '215',
+23:05:10 │              React Router │       'x-stats-userid': '',
+23:05:10 │              React Router │       'x-stats-apiclientid': '298638835713',
+23:05:10 │              React Router │       'x-stats-apipermissionid': '626354094296',
+23:05:10 │              React Router │       'x-shopify-api-version': '2025-10',
+23:05:10 │              React Router │       'content-language': 'en',
+23:05:10 │              React Router │       'strict-transport-security': 'max-age=7889238',
+23:05:10 │              React Router │       'x-request-id': '9b4f03ec-52e1-4b9b-9c5d-bd9d026d75d5-1766325909',
+23:05:10 │              React Router │       'server-timing': 'processing;dur=58, verdict_flag_enabled;desc="count=18";dur=1.721,
+graphql;desc="admin/query/other", _y;desc="ea6c2ec5-7e3c-4246-8756-9c448f0b4119", _s;desc="6ccc7444-5db2-454c-9719-6509f9b35b33",
+cfRequestDuration;dur=255.999804, ipv6',
+23:05:10 │              React Router │       'content-security-policy': "default-src 'self' data: blob: 'unsafe-inline' 'unsafe-eval' https://*
+shopify-pos://*; block-all-mixed-content; child-src 'self' https://* shopify-pos://*; connect-src 'self' wss://* https://*; frame-ancestors 'none';
+ img-src 'self' data: blob: https:; script-src https://cdn.shopify.com https://cdn.shopifycdn.net https://checkout.pci.shopifyinc.com
+https://checkout.pci.shopifyinc.com/build/04ed4e1/card_fields.js https://api.stripe.com https://mpsnare.iesnare.com https://appcenter.intuit.com
+https://www.paypal.com https://js.braintreegateway.com https://c.paypal.com https://maps.googleapis.com https://www.google-analytics.com
+https://v.shopify.com 'self' 'unsafe-inline' 'unsafe-eval'; upgrade-insecure-requests; report-uri /csp-report?source%5Baction%5D=query&source%5Bapp
+%5D=Shopify&source%5Bcontroller%5D=admin%2Fgraphql&source%5Bsection%5D=admin_api&source%5Buuid%5D=9b4f03ec-52e1-4b9b-9c5d-bd9d026d75d5-1766325909;
+report-to shopify-csp",
+23:05:10 │              React Router │       'x-content-type-options': 'nosniff',
+23:05:10 │              React Router │       'x-download-options': 'noopen',
+23:05:10 │              React Router │       'x-permitted-cross-domain-policies': 'none',
+23:05:10 │              React Router │       'x-xss-protection': '1; mode=block',
+23:05:10 │              React Router │       'reporting-endpoints': 'shopify-csp="/csp-report?source%5Baction%5D=query&source%5Bapp%5D=Shopify&sour
+ce%5Bcontroller%5D=admin%2Fgraphql&source%5Bsection%5D=admin_api&source%5Buuid%5D=9b4f03ec-52e1-4b9b-9c5d-bd9d026d75d5-1766325909"',
+23:05:10 │              React Router │       'x-dc': 'gcp-us-central1,gcp-us-east1,gcp-us-east1',
+23:05:10 │              React Router │       'content-encoding': 'gzip',
+23:05:10 │              React Router │       'alt-svc': 'h3=":443"; ma=86400',
+23:05:10 │              React Router │       'cf-cache-status': 'DYNAMIC',
+23:05:10 │              React Router │       'report-to': '{"endpoints":[{"url":"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=uJXk7CLJptnO305Wj
+9EyVfAsTbjNDPbW%2BW5pv2M8Hgo6DFtDtgSMQE%2BkBPk4IhgL%2FZyaOD%2FrXLyKeb%2FnM6lp1a14WqmWh0noRiZKudjcglRgZRrVxitxX2Cw0xYBR3AXVNbLj2fkRC9kAvnBz3cBe2gA85
+aHvuUlBuFpEGz7bNtcN%2Btx"}],"group":"cf-nel","max_age":604800}',
+23:05:10 │              React Router │       nel: '{"success_fraction":0.01,"report_to":"cf-nel","max_age":604800}',
+23:05:10 │              React Router │       server: 'cloudflare',
+23:05:10 │              React Router │       'cf-ray': '9b17eec88dad966a-NRT'
+23:05:10 │              React Router │     },
+23:05:10 │              React Router │     body: ReadableStream { locked: true, state: 'closed', supportsBYOB: true },
+23:05:10 │              React Router │     bodyUsed: true,
+23:05:10 │              React Router │     ok: true,
+23:05:10 │              React Router │     redirected: false,
+23:05:10 │              React Router │     type: 'basi
+23:05:10 │              React Router │ c',
+23:05:10 │              React Router │     url: 'https://simple-delivery-date-app.myshopify.com/admin/api/2025-10/graphql.json'
+23:05:10 │              React Router │   },
+23:05:10 │              React Router │   headers: {
+23:05:10 │              React Router │     'Alt-Svc': [ 'h3=":443"; ma=86400' ],
+23:05:10 │              React Router │     'Cf-Cache-Status': [ 'DYNAMIC' ],
+23:05:10 │              React Router │     'Cf-Ray': [ '9b17eec88dad966a-NRT' ],
+23:05:10 │              React Router │     Connection: [ 'keep-alive' ],
+23:05:10 │              React Router │     'Content-Encoding': [ 'gzip' ],
+23:05:10 │              React Router │     'Content-Language': [ 'en' ],
+23:05:10 │              React Router │     'Content-Security-Policy': [
+23:05:10 │              React Router │       "default-src 'self' data: blob: 'unsafe-inline' 'unsafe-eval' https://* shopify-pos://*;
+block-all-mixed-content; child-src 'self' https://* shopify-pos://*; connect-src 'self' wss://* https://*; frame-ancestors 'none'; img-src 'self'
+data: blob: https:; script-src https://cdn.shopify.com https://cdn.shopifycdn.net https://checkout.pci.shopifyinc.com
+https://checkout.pci.shopifyinc.com/build/04ed4e1/card_fields.js https://api.stripe.com https://mpsnare.iesnare.com https://appcenter.intuit.com
+https://www.paypal.com https://js.braintreegateway.com https://c.paypal.com https://maps.googleapis.com https://www.google-analytics.com
+https://v.shopify.com 'self' 'unsafe-inline' 'unsafe-eval'; upgrade-insecure-requests; report-uri /csp-report?source%5Baction%5D=query&source%5Bapp
+%5D=Shopify&source%5Bcontroller%5D=admin%2Fgraphql&source%5Bsection%5D=admin_api&source%5Buuid%5D=9b4f03ec-52e1-4b9b-9c5d-bd9d026d75d5-1766325909;
+report-to shopify-csp"
+23:05:10 │              React Router │     ],
+23:05:10 │              React Router │     'Content-Type': [ 'application/json; charset=utf-8' ],
+23:05:10 │              React Router │     Date: [ 'Sun, 21 Dec 2025 14:05:10 GMT' ],
+23:05:10 │              React Router │     Nel: [
+23:05:10 │              React Router │       '{"success_fraction":0.01,"report_to":"cf-nel","max_age":604800}'
+23:05:10 │              React Router │     ],
+23:05:10 │              React Router │     'Referrer-Policy': [ 'origin-when-cross-origin' ],
+23:05:10 │              React Router │     'Report-To': [
+23:05:10 │              React Router │       '{"endpoints":[{"url":"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=uJXk7CLJptnO305Wj9EyVfAsTbjNDP
+bW%2BW5pv2M8Hgo6DFtDtgSMQE%2BkBPk4IhgL%2FZyaOD%2FrXLyKeb%2FnM6lp1a14WqmWh0noRiZKudjcglRgZRrVxitxX2Cw0xYBR3AXVNbLj2fkRC9kAvnBz3cBe2gA85aHvuUlBuFpEGz
+7bNtcN%2Btx"}],"group":"cf-nel","max_age":604800}'
+23:05:10 │              React Router │     ],
+23:05:10 │              React Router │     'Reporting-Endpoints': [
+23:05:10 │              React Router │       'shopify-csp="/csp-report?source%5Baction%5D=query&source%5Bapp%5D=Shopify&source%5Bcontroller%5D=admi
+n%2Fgraphql&source%5Bsection%5D=admin_api&source%5Buuid%5D=9b4f03ec-52e1-4b9b-9c5d-bd9d026d75d5-1766325909"'
+23:05:10 │              React Router │     ],
+23:05:10 │              React Router │     Server: [ 'cloudflare' ],
+23:05:10 │              React Router │     'Server-Timing': [
+23:05:10 │              React Router │       'processing;dur=58, verdict_flag_enabled;desc="count=18";dur=1.721, graphql;desc="admin/query/other",
+_y;desc="ea6c2ec5-7e3c-4246-8756-9c448f0b4119", _s;desc="6ccc7444-5db2-454c-9719-6509f9b35b33", cfRequestDuration;dur=255.999804, ipv6'
+23:05:10 │              React Router │     ],
+23:05:10 │              React Router │     'Strict-Transport-Security': [ 'max-age=7889238' ],
+23:05:10 │              React Router │     'Transfer-Encoding': [ 'chunked' ],
+23:05:10 │              React Router │     Vary: [ 'Accept-Encoding' ],
+23:05:10 │              React Router │     'X-Content-Type-Options': [ 'nosniff' ],
+23:05:10 │              React Router │     'X-Dc': [ 'gcp-us-central1,gcp-us-east1,gcp-us-east1' ],
+23:05:10 │              React Router │     'X-Download-Options': [ 'noopen' ],
+23:05:10 │              React Router │     'X-Frame-Options': [ 'DENY' ],
+23:05:10 │              React Router │     'X-Permitted-Cross-Domain-Policies': [ 'none' ],
+23:05:10 │              React Router │     'X-Request-Id': [ '9b4f03ec-52e1-4b9b-9c5d-bd9d026d75d5-1766325909' ],
+23:05:10 │              React Router │     'X-Shardid': [ '215' ],
+23:05:10 │              React Router │     'X-Shopid': [ '78909636824' ],
+23:05:10 │              React Router │     'X-Shopify-Api-Version': [ '2025-10' ],
+23:05:10 │              React Router │     'X-Sorting-Hat-Podid': [ '215' ],
+23:05:10 │              React Router │     'X-Sorting-Hat-Shopid': [ '78909636824' ],
+23:05:10 │              React Router │     'X-Stats-Apiclientid': [ '298638835713' ],
+23:05:10 │              React Router │     'X-Stats-Apipermissionid': [ '626354094296' ],
+23:05:10 │              React Router │     'X-Stats-Userid': [ '' ],
+23:05:10 │              React Router │     'X-Xss-Protection': [ '1; mode=block' ]
+23:05:10 │              React Router │   },
+23:05:10 │              React Router │   body: {
+23:05:10 │              React Router │     extensions: { cost: [Object] },
+23:05:10 │              React Router │     headers: Headers {
+23:05:10 │              React Router │       date: 'Sun, 21 Dec 2025 14:05:10 GMT',
+23:05:10 │              React Router │       'content-type': 'application/json; charset=utf-8',
+23:05:10 │              React Router │       'transfer-encoding': 'chunked',
+23:05:10 │              React Router │       connection: 'keep-alive',
+23:05:10 │              React Router │       'x-sorting-hat-podid': '215',
+23:05:10 │              React Router │       'x-sorting-hat-shopid': '78909636824',
+23:05:10 │              React Router │       vary: 'Accept-Encoding',
+23:05:10 │              React Router │       'referrer-policy': 'origin-when-cross-origin',
+23:05:10 │              React Router │       'x-frame-options': 'DENY',
+23:05:10 │              React Router │       'x-shopid': '78909636824',
+23:05:10 │              React Router │       'x-shardid': '215',
+23:05:10 │              React Router │       'x-stats-userid': '',
+23:05:10 │              React Router │       'x-stats-apiclientid': '298638835713',
+23:05:10 │              React Router │       'x-stats-apipermissionid': '626354094296',
+23:05:10 │              React Router │       'x-shopify-api-version': '2025-10',
+23:05:10 │              React Router │       'content-language': 'en',
+23:05:10 │              React Router │       'strict-transport-security': 'max-age=7889238',
+23:05:10 │              React Router │       'x-request-id': '9b4f03ec-52e1-4b9b-9c5d-bd9d026d75d5-1766325909',
+23:05:10 │              React Router │       'server-timing': 'processing;dur=58, verdict_flag_enabled;desc="count=18";dur=1.721,
+graphql;desc="admin/query/other", _y;desc="ea6c2ec5-7e3c-4246-8756-9c448f0b4119", _s;desc="6ccc7444-5db2-454c-9719-6509f9b35b33",
+cfRequestDuration;dur=255.999804, ipv6',
+23:05:10 │              React Router │       'content-security-policy': "default-src 'self' data: blob: 'unsafe-inline' 'unsafe-eval' https://*
+shopify-pos://*; block-all-mixed-content; child-src 'self' https://* shopify-pos://*; connect-src 'self' wss://* https://*; frame-ancestors 'none';
+ img-src 'self' data: blob: https:; script-src https://cdn.shopify.com https://cdn.shopifycdn.net https://checkout.pci.shopifyinc.com
+https://checkout.pci.shopifyinc.com/build/04ed4e1/card_fields.js https://api.stripe.com https://mpsnare.iesnare.com https://appcenter.intuit.com
+https://www.paypal.com https://js.braintreegateway.com https://c.paypal.com https://maps.googleapis.com https://www.google-analytics.com
+https://v.shopify.com 'self' 'unsafe-inline' 'unsafe-eval'; upgrade-insecure-requests; report-uri /csp-report?source%5Baction%5D=query&source%5Bapp
+%5D=Shopify&source%5Bcontroller%5D=admin%2Fgraphql&source%5Bsection%5D=admin_api&source%5Buuid%5D=9b4f03ec-52e1-4b9b-9c5d-bd9d026d75d5-1766325909;
+report-to shopify-csp",
+23:05:10 │              React Router │       'x-content-type-options': 'nosniff',
+23:05:10 │              React Router │       'x-download-options': 'noopen',
+23:05:10 │              React Router │       'x-permitted-cross-domain-policies': 'none',
+23:05:10 │              React Router │       'x-xss-protection': '1; mode=block',
+23:05:10 │              React Router │       'reporting-endpoints': 'shopify-csp="/csp-report?source%5Baction%5D=query&source%5Bapp%5D=Shopify&sour
+ce%5Bcontroller%5D=admin%2Fgraphql&source%5Bsection%5D=admin_api&source%5Buuid%5D=9b4f03ec-52e1-4b9b-9c5d-bd9d026d75d5-1766325909"',
+23:05:10 │              React Router │       'x-dc': 'gcp-us-central1,gcp-us-east1,gcp-us-east1',
+23:05:10 │              React Router │       'content-encoding': 'gzip',
+23:05:10 │              React Router │       'alt-svc': 'h3=":443"; ma=86400',
+23:05:10 │              React Router │       'cf-cache-status': 'DYNAMIC',
+23:05:10 │              React Router │       'report-to': '{"endpoints":[{"url":"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=uJXk7CLJptnO305Wj
+9EyVfAsTbjNDPbW%2BW5pv2M8Hgo6DFtDtgSMQE%2BkBPk4IhgL%2FZyaOD%2FrXLyKeb%2FnM6lp1a14WqmWh0noRiZKudjcglRgZRrVxitxX2Cw0xYBR3AXVNbLj2fkRC9kAvnBz3cBe2gA85
+aHvuUlBuFpEGz7bNtcN%2Btx"}],"group":"cf-nel","max_age":604800}',
+23:05:10 │              React Router │       nel: '{"success_fraction":0.01,"report_to":"cf-nel","max_age":604800}',
+23:05:10 │              React Router │       server: 'cloudflare',
+23:05:10 │              React Router │       'cf-ray': '9b17eec88dad966a-NRT'
+23:05:10 │              React Router │     },
+23:05:10 │              React Router │     errors: {
+23:05:10 │              React Router │       networkStatusCode: 200,
+23:05:10 │              React Router │       message: "GraphQL Client: An error occurred while fetching from the API. Review 'graphQLErrors' for
+details.",
+23:05:10 │              React Router │       graphQLErrors: [Array],
+23:05:10 │              React Router │       response: Response {
+23:05:10 │              React Router │         status: 200,
+23:05:10 │              React Router │         statusText: 'OK',
+23:05:10 │              React Router │         headers: Headers {
+23:05:10 │              React Router │           date: 'Sun, 21 Dec 2025 14:05:10 GMT',
+23:05:10 │              React Router │           'content-type': 'application/json; charset=utf-8',
+23:05:10 │              React Router │           'transfer-encoding': 'chunked'
+23:05:10 │              React Router │ 39m,
+23:05:10 │              React Router │           connection: 'keep-alive',
+23:05:10 │              React Router │           'x-sorting-hat-podid': '215',
+23:05:10 │              React Router │           'x-sorting-hat-shopid': '78909636824',
+23:05:10 │              React Router │           vary: 'Accept-Encoding',
+23:05:10 │              React Router │           'referrer-policy': 'origin-when-cross-origin',
+23:05:10 │              React Router │           'x-frame-options': 'DENY',
+23:05:10 │              React Router │           'x-shopid': '78909636824',
+23:05:10 │              React Router │           'x-shardid': '215',
+23:05:10 │              React Router │           'x-stats-userid': '',
+23:05:10 │              React Router │           'x-stats-apiclientid': '298638835713',
+23:05:10 │              React Router │           'x-stats-apipermissionid': '626354094296',
+23:05:10 │              React Router │           'x-shopify-api-version': '2025-10',
+23:05:10 │              React Router │           'content-language': 'en',
+23:05:10 │              React Router │           'strict-transport-security': 'max-age=7889238',
+23:05:10 │              React Router │           'x-request-id': '9b4f03ec-52e1-4b9b-9c5d-bd9d026d75d5-1766325909',
+23:05:10 │              React Router │           'server-timing': 'processing;dur=58, verdict_flag_enabled;desc="count=18";dur=1.721,
+graphql;desc="admin/query/other", _y;desc="ea6c2ec5-7e3c-4246-8756-9c448f0b4119", _s;desc="6ccc7444-5db2-454c-9719-6509f9b35b33",
+cfRequestDuration;dur=255.999804, ipv6',
+23:05:10 │              React Router │           'content-security-policy': "default-src 'self' data: blob: 'unsafe-inline' 'unsafe-eval' https://*
+ shopify-pos://*; block-all-mixed-content; child-src 'self' https://* shopify-pos://*; connect-src 'self' wss://* https://*; frame-ancestors
+'none'; img-src 'self' data: blob: https:; script-src https://cdn.shopify.com https://cdn.shopifycdn.net https://checkout.pci.shopifyinc.com
+https://checkout.pci.shopifyinc.com/build/04ed4e1/card_fields.js https://api.stripe.com https://mpsnare.iesnare.com https://appcenter.intuit.com
+https://www.paypal.com https://js.braintreegateway.com https://c.paypal.com https://maps.googleapis.com https://www.google-analytics.com
+https://v.shopify.com 'self' 'unsafe-inline' 'unsafe-eval'; upgrade-insecure-requests; report-uri /csp-report?source%5Baction%5D=query&source%5Bapp
+%5D=Shopify&source%5Bcontroller%5D=admin%2Fgraphql&source%5Bsection%5D=admin_api&source%5Buuid%5D=9b4f03ec-52e1-4b9b-9c5d-bd9d026d75d5-1766325909;
+report-to shopify-csp",
+23:05:10 │              React Router │           'x-content-type-options': 'nosniff',
+23:05:10 │              React Router │           'x-download-options': 'noopen',
+23:05:10 │              React Router │           'x-permitted-cross-domain-policies': 'none',
+23:05:10 │              React Router │           'x-xss-protection': '1; mode=block',
+23:05:10 │              React Router │           'reporting-endpoints': 'shopify-csp="/csp-report?source%5Baction%5D=query&source%5Bapp%5D=Shopify&
+source%5Bcontroller%5D=admin%2Fgraphql&source%5Bsection%5D=admin_api&source%5Buuid%5D=9b4f03ec-52e1-4b9b-9c5d-bd9d026d75d5-1766325909"',
+23:05:10 │              React Router │           'x-dc': 'gcp-us-central1,gcp-us-east1,gcp-us-east1',
+23:05:10 │              React Router │           'content-encoding': 'gzip',
+23:05:10 │              React Router │           'alt-svc': 'h3=":443"; ma=86400',
+23:05:10 │              React Router │           'cf-cache-status': 'DYNAMIC',
+23:05:10 │              React Router │           'report-to': '{"endpoints":[{"url":"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=uJXk7CLJptnO3
+05Wj9EyVfAsTbjNDPbW%2BW5pv2M8Hgo6DFtDtgSMQE%2BkBPk4IhgL%2FZyaOD%2FrXLyKeb%2FnM6lp1a14WqmWh0noRiZKudjcglRgZRrVxitxX2Cw0xYBR3AXVNbLj2fkRC9kAvnBz3cBe2
+gA85aHvuUlBuFpEGz7bNtcN%2Btx"}],"group":"cf-nel","max_age":604800}',
+23:05:10 │              React Router │           nel: '{"success_fraction":0.01,"report_to":"cf-nel","max_age":604800}',
+23:05:10 │              React Router │           server: 'cloudflare',
+23:05:10 │              React Router │           'cf-ray': '9b17eec88dad966a-NRT'
+23:05:10 │              React Router │         },
+23:05:10 │              React Router │         body: ReadableStream { locked: true, state: 'closed', supportsBYOB: true },
+23:05:10 │              React Router │         bodyUsed: true,
+23:05:10 │              React Router │         ok: true,
+23:05:10 │              React Router │         redirected: false,
+23:05:10 │              React Router │         type: 'basic',
+23:05:10 │              React Router │         url: 'https://simple-delivery-date-app.myshopify.com/admin/api/2025-10/graphql.json'
+23:05:10 │              React Router │       }
+23:05:10 │              React Router │     }
+23:05:10 │              React Router │   }
+23:05:10 │              React Router │ }

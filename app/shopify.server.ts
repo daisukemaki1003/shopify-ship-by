@@ -11,8 +11,6 @@ import { upsertShopFromSession } from "./services/shop.server";
 const defaultScopes = [
   "read_orders",
   "write_orders",
-  "read_order_metafields",
-  "write_order_metafields",
   "read_products",
   "read_shipping",
 ];

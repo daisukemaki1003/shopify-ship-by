@@ -299,7 +299,7 @@ export default function RulesIndexPage() {
         </Button>
       }
     >
-      <SuccessToast message={successMessage} />
+      <SuccessToast message={successMessage} nonce={location.key} />
       {errorMessage ? (
         <div style={{marginBottom: 16}}>
           <CriticalBanner message={errorMessage} />
