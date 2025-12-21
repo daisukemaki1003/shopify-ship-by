@@ -1,12 +1,13 @@
 import {useEffect, useState} from "react";
 import type {ActionFunctionArgs, LoaderFunctionArgs} from "react-router";
 import {Form, redirect, useActionData, useLoaderData} from "react-router";
-import {useAppBridge} from "@shopify/app-bridge-react";
-import {Banner, BlockStack, Button, Card, Page, Text, TextField} from "@shopify/polaris";
+import {BlockStack, Button, Card, Page, Text, TextField} from "@shopify/polaris";
 
 import prisma from "../db.server";
 import {authenticate} from "../shopify.server";
 import {parsePositiveInt} from "../utils/validation";
+import {CriticalBanner} from "../components/CriticalBanner";
+import {SuccessToast} from "../components/SuccessToast";
 
 type LoaderData = {
   defaultLeadDays: number | null;
@@ -63,21 +64,16 @@ export const action = async ({request}: ActionFunctionArgs) => {
 export default function SettingsPage() {
   const {defaultLeadDays, flashMessage} = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
-  const shopify = useAppBridge();
   const [leadDays, setLeadDays] = useState(defaultLeadDays ? String(defaultLeadDays) : "");
   const isFormReady = parsePositiveInt(leadDays) != null;
   const bannerText = actionData && !actionData.ok ? actionData.message : flashMessage?.text;
   const bannerTone = actionData && !actionData.ok ? "critical" : flashMessage?.tone ?? "success";
+  const successMessage = bannerTone === "success" ? bannerText : null;
+  const errorMessage = bannerTone === "critical" ? bannerText : null;
 
   useEffect(() => {
     setLeadDays(defaultLeadDays ? String(defaultLeadDays) : "");
   }, [defaultLeadDays]);
-
-  useEffect(() => {
-    if (bannerText && bannerTone === "success") {
-      shopify.toast.show(bannerText, {duration: 5000});
-    }
-  }, [bannerText, bannerTone, shopify]);
 
   return (
     <Form method="post">
@@ -93,11 +89,8 @@ export default function SettingsPage() {
           <Text as="p" tone="subdued">
             配送エリアにルールがない場合に使用される基準日数を設定します。
           </Text>
-          {bannerText && bannerTone === "critical" ? (
-            <Banner tone={bannerTone}>
-              <p>{bannerText}</p>
-            </Banner>
-          ) : null}
+          <SuccessToast message={successMessage} />
+          <CriticalBanner message={errorMessage} />
           <Card>
             <BlockStack gap="200">
               <Text as="h2" variant="headingMd">

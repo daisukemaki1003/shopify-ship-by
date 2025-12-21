@@ -6,10 +6,12 @@ import type {
 } from "react-router";
 import { useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
-import { Banner, BlockStack, Button, Card, InlineStack, Layout, Link, List, Page, Text } from "@shopify/polaris";
+import { BlockStack, Button, Card, InlineStack, Layout, Link, List, Page, Text } from "@shopify/polaris";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import { CriticalBanner } from "../components/CriticalBanner";
+import { SettingsRequiredBanner } from "../components/SettingsRequiredBanner";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -139,20 +141,9 @@ export default function Index() {
         <Layout.Section>
           <BlockStack gap="400">
             {!isSettingsReady ? (
-              <Banner tone="critical">
-                <BlockStack gap="200">
-                  <Text as="p">全体設定が未完了のため操作できません。</Text>
-                  <div>
-                    <Button url="/app/settings">全体設定へ</Button>
-                  </div>
-                </BlockStack>
-              </Banner>
+              <SettingsRequiredBanner />
             ) : null}
-            {fetcherError ? (
-              <Banner tone="critical">
-                <p>{fetcherError}</p>
-              </Banner>
-            ) : null}
+            <CriticalBanner message={fetcherError} />
             <Card>
               <BlockStack gap="200">
                 <Text as="h2" variant="headingMd">

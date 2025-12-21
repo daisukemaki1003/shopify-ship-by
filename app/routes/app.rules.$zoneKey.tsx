@@ -2,7 +2,6 @@ import {useEffect, useMemo, useState} from "react";
 import type {ActionFunctionArgs, LoaderFunctionArgs, ShouldRevalidateFunction} from "react-router";
 import {Form, redirect, useActionData, useLoaderData} from "react-router";
 import {
-  Banner,
   BlockStack,
   Button,
   Card,
@@ -32,9 +31,10 @@ import type {
   ProductRuleWithProducts,
   ProductSummary,
 } from "../utils/rule-types";
-import {useAppBridge} from "@shopify/app-bridge-react";
-
 import {ProductPreviewPills} from "app/components/ProductPreviewPills";
+import {CriticalBanner} from "../components/CriticalBanner";
+import {SettingsRequiredBanner} from "../components/SettingsRequiredBanner";
+import {SuccessToast} from "../components/SuccessToast";
 import {toZoneLabel} from "../utils/shipping-zones";
 
 // 画面描画に必要なデータセット（flashMessageを付与）
@@ -155,18 +155,13 @@ type EditableProductRule = ProductRuleWithProducts & {
 export default function RuleDetailPage() {
   const {zone, rates, base, productRules, flashMessage, defaultLeadDays} = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
-  const shopify = useAppBridge();
   const baseDaysFromLoader = base ? String(base.days) : "";
   const [baseDays, setBaseDays] = useState<string>(baseDaysFromLoader);
   const isSettingsReady = defaultLeadDays != null && defaultLeadDays > 0;
   const bannerText = actionData?.message ?? flashMessage?.text;
   const bannerTone = actionData ? "critical" : flashMessage?.tone ?? "success";
-
-  useEffect(() => {
-    if (bannerText && bannerTone === "success") {
-      shopify.toast.show(bannerText, {duration: 5000});
-    }
-  }, [bannerText, bannerTone, shopify]);
+  const successMessage = bannerTone === "success" ? bannerText : null;
+  const errorMessage = bannerTone === "critical" ? bannerText : null;
 
   // ID配列を商品サマリーに変換し、欠損時はダミーで補完する
   const withProductsForIds = (productIds: string[], products: ProductSummary[]) => {
@@ -296,20 +291,10 @@ export default function RuleDetailPage() {
         }
       >
         <BlockStack gap="400">
-          {bannerText && bannerTone === "critical" ? (
-            <Banner tone={bannerTone}>
-              <p>{bannerText}</p>
-            </Banner>
-          ) : null}
+          <SuccessToast message={successMessage} />
+          <CriticalBanner message={errorMessage} />
           {!isSettingsReady ? (
-            <Banner tone="critical">
-              <BlockStack gap="200">
-                <Text as="p">全体設定が未完了のため保存できません。</Text>
-                <div>
-                  <Button url="/app/settings">全体設定へ</Button>
-                </div>
-              </BlockStack>
-            </Banner>
+            <SettingsRequiredBanner message="全体設定が未完了のため保存できません。" />
           ) : null}
 
           <Card>

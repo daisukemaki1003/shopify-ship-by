@@ -1,8 +1,7 @@
-import {useCallback, useEffect, useMemo, useState} from "react";
+import {useCallback, useMemo, useState} from "react";
 import type {ActionFunctionArgs} from "react-router";
 import {redirect, useFetcher, useLoaderData, useLocation, useNavigate} from "react-router";
 import {
-  Banner,
   BlockStack,
   Box,
   Button,
@@ -15,13 +14,15 @@ import {
   Text,
   useIndexResourceState,
 } from "@shopify/polaris";
-import {useAppBridge} from "@shopify/app-bridge-react";
 
 import prisma from "../db.server";
 import {authenticate} from "../shopify.server";
 import {getShippingRates} from "../services/shipping-rates.server";
 import {toZoneKey, toZoneLabel} from "../utils/shipping-zones";
 import {BulkAction} from "@shopify/polaris/build/ts/src/components/BulkActions";
+import {CriticalBanner} from "../components/CriticalBanner";
+import {SettingsRequiredBanner} from "../components/SettingsRequiredBanner";
+import {SuccessToast} from "../components/SuccessToast";
 
 type ZoneRuleSummary = {
   zoneKey: string;
@@ -209,19 +210,14 @@ export default function RulesIndexPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const fetcher = useFetcher<ActionData>();
-  const shopify = useAppBridge();
   const isSettingsReady = defaultLeadDays != null && defaultLeadDays > 0;
   const resourceName = useMemo(
     () => ({singular: "shipping rule", plural: "shipping rules"}),
     [],
   );
   const host = useMemo(() => new URLSearchParams(location.search).get("host"), [location.search]);
-
-  useEffect(() => {
-    if (flashMessage?.tone === "success") {
-      shopify.toast.show(flashMessage.text, {duration: 5000});
-    }
-  }, [flashMessage, shopify]);
+  const successMessage = flashMessage?.tone === "success" ? flashMessage.text : null;
+  const errorMessage = flashMessage?.tone === "critical" ? flashMessage.text : null;
 
   const toDetailUrl = useCallback(
     (zoneKey: string) => {
@@ -303,23 +299,15 @@ export default function RulesIndexPage() {
         </Button>
       }
     >
-      {flashMessage && flashMessage.tone === "critical" ? (
+      <SuccessToast message={successMessage} />
+      {errorMessage ? (
         <div style={{marginBottom: 16}}>
-          <Banner tone={flashMessage.tone}>
-            <p>{flashMessage.text}</p>
-          </Banner>
+          <CriticalBanner message={errorMessage} />
         </div>
       ) : null}
       {!isSettingsReady ? (
         <div style={{marginBottom: 16}}>
-          <Banner tone="critical">
-            <BlockStack gap="200">
-              <Text as="p">全体設定が未完了のため操作できません。</Text>
-              <div>
-                <Button url="/app/settings">全体設定へ</Button>
-              </div>
-            </BlockStack>
-          </Banner>
+          <SettingsRequiredBanner />
         </div>
       ) : null}
 
