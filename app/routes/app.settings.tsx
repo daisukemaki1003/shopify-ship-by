@@ -633,7 +633,7 @@ export default function SettingsPage() {
                   })),
                   {label: "カスタム（手入力）", value: FORMAT_PRESET_CUSTOM},
                 ]}
-                value={formatPresetValue}
+                value={formatPresetSelection}
                 onChange={handleFormatPresetChange}
                 helpText="よく使う形式から選べます。"
               />
