@@ -1,273 +1,242 @@
-import { useEffect } from "react";
-import type {
-  ActionFunctionArgs,
-  HeadersFunction,
-  LoaderFunctionArgs,
-} from "react-router";
-import { useFetcher, useLoaderData } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
-import { BlockStack, Button, Card, InlineStack, Layout, Link, List, Page, Text } from "@shopify/polaris";
+import { useState } from "react";
+import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
+import { useLoaderData } from "react-router";
+import {
+  BlockStack,
+  Button,
+  Card,
+  Checkbox,
+  Collapsible,
+  Divider,
+  InlineStack,
+  Layout,
+  Page,
+  Text,
+} from "@shopify/polaris";
+import { ChevronDownIcon, ChevronUpIcon, XIcon } from "@shopify/polaris-icons";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { CriticalBanner } from "../components/CriticalBanner";
-import { SettingsRequiredBanner } from "../components/SettingsRequiredBanner";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const setting = await prisma.shopSetting.findUnique({
     where: { shopId: session.shop },
-    select: { defaultLeadDays: true },
+    select: { defaultLeadDays: true, deliverySource: true, deliveryKey: true },
   });
-
-  return { defaultLeadDays: setting?.defaultLeadDays ?? null };
-};
-
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
-  const setting = await prisma.shopSetting.findUnique({
+  const ruleCount = await prisma.rule.count({
     where: { shopId: session.shop },
-    select: { defaultLeadDays: true },
   });
-  if (!setting?.defaultLeadDays || setting.defaultLeadDays <= 0) {
-    return { error: "全体設定が未完了のため操作できません" };
-  }
-  const color = ["Red", "Orange", "Yellow", "Green"][
-    Math.floor(Math.random() * 4)
-  ];
-  const response = await admin.graphql(
-    `#graphql
-      mutation populateProduct($product: ProductCreateInput!) {
-        productCreate(product: $product) {
-          product {
-            id
-            title
-            handle
-            status
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  price
-                  barcode
-                  createdAt
-                }
-              }
-            }
-          }
-        }
-      }`,
-    {
-      variables: {
-        product: {
-          title: `${color} Snowboard`,
-        },
-      },
-    },
-  );
-  const responseJson = await response.json();
-
-  const product = responseJson.data!.productCreate!.product!;
-  const variantId = product.variants.edges[0]!.node!.id!;
-
-  const variantResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpdateVariant($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-        productVariants {
-          id
-          price
-          barcode
-          createdAt
-        }
-      }
-    }`,
-    {
-      variables: {
-        productId: product.id,
-        variants: [{ id: variantId, price: "100.00" }],
-      },
-    },
-  );
-
-  const variantResponseJson = await variantResponse.json();
 
   return {
-    product: responseJson!.data!.productCreate!.product,
-    variant:
-      variantResponseJson!.data!.productVariantsBulkUpdate!.productVariants,
+    defaultLeadDays: setting?.defaultLeadDays ?? null,
+    deliverySource: setting?.deliverySource ?? null,
+    deliveryKey: setting?.deliveryKey ?? null,
+    hasRules: ruleCount > 0,
   };
 };
 
 export default function Index() {
-  const fetcher = useFetcher<typeof action>();
-  const { defaultLeadDays } = useLoaderData<typeof loader>();
-
-  const shopify = useAppBridge();
-  const isSettingsReady = defaultLeadDays != null && defaultLeadDays > 0;
-  const isLoading =
-    ["loading", "submitting"].includes(fetcher.state) &&
-    fetcher.formMethod === "POST";
-  const fetcherError = fetcher.data && "error" in fetcher.data ? fetcher.data.error : null;
-  const product = fetcher.data && "product" in fetcher.data ? fetcher.data.product : null;
-  const variant = fetcher.data && "variant" in fetcher.data ? fetcher.data.variant : null;
-
-  useEffect(() => {
-    if (product?.id) {
-      shopify.toast.show("Product created");
-    }
-  }, [product?.id, shopify]);
-
-  const generateProduct = () => {
-    if (!isSettingsReady) return;
-    fetcher.submit({}, { method: "POST" });
-  };
+  const { defaultLeadDays, deliverySource, deliveryKey, hasRules } =
+    useLoaderData<typeof loader>();
+  const isLeadDaysReady = defaultLeadDays != null && defaultLeadDays > 0;
+  const isDeliveryReady =
+    (deliverySource === "metafield" || deliverySource === "attributes") &&
+    Boolean(deliveryKey?.trim());
+  const steps = [
+    {
+      id: "lead-days",
+      title: "出荷リードタイムを設定",
+      description: "全体設定で基準となる日数を入力します。",
+      detail:
+        "配送エリアにルールがない場合に使われる日数です。まずは全体の基準値を決めます。",
+      actionLabel: "全体設定へ",
+      url: "/app/settings",
+      done: isLeadDaysReady,
+    },
+    {
+      id: "delivery-source",
+      title: "お届け希望日の取得方法を設定",
+      description: "メタフィールドまたは属性のキーを指定します。",
+      detail:
+        "注文データからお届け希望日を取得するためのキーとフォーマットを指定します。",
+      actionLabel: "取得方法を設定",
+      url: "/app/settings",
+      done: isDeliveryReady,
+    },
+    {
+      id: "rules",
+      title: "配送エリアのルールを作成",
+      description: "配送方法ごとの出荷日数を登録します。",
+      detail:
+        "配送エリアごとに出荷日数を登録して、より正確な出荷日を計算します。",
+      actionLabel: "ルールを作成",
+      url: "/app/rules",
+      done: hasRules,
+    },
+  ];
+  const totalSteps = steps.length;
+  const [completionOverrides, setCompletionOverrides] = useState<Record<string, boolean>>({});
+  const isStepDone = (stepId: string, fallback: boolean) =>
+    completionOverrides[stepId] ?? fallback;
+  const completedSteps = steps.filter((step) =>
+    isStepDone(step.id, step.done),
+  ).length;
+  const [isGuideVisible, setIsGuideVisible] = useState(true);
+  const [isGuideOpen, setIsGuideOpen] = useState(true);
+  const [openStepId, setOpenStepId] = useState(() => {
+    const firstIncomplete = steps.find((step) => !step.done);
+    return firstIncomplete?.id ?? steps[0]?.id ?? null;
+  });
 
   return (
-    <Page
-      title="Shopify app template"
-      primaryAction={
-        <Button
-          variant="primary"
-          onClick={generateProduct}
-          loading={isLoading}
-          disabled={!isSettingsReady}
-        >
-          Generate a product
-        </Button>
-      }
-    >
+    <Page title="ダッシュボード">
       <Layout>
         <Layout.Section>
           <BlockStack gap="400">
-            {!isSettingsReady ? (
-              <SettingsRequiredBanner />
-            ) : null}
-            <CriticalBanner message={fetcherError} />
-            <Card>
-              <BlockStack gap="200">
-                <Text as="h2" variant="headingMd">
-                  Congrats on creating a new Shopify app
-                </Text>
-                <Text as="p">
-                  This embedded app template uses{" "}
-                  <Link url="https://shopify.dev/docs/apps/tools/app-bridge" target="_blank">
-                    App Bridge
-                  </Link>{" "}
-                  interface examples like an <Link url="/app/additional">additional page</Link>, as well as an{" "}
-                  <Link url="https://shopify.dev/docs/api/admin-graphql" target="_blank">
-                    Admin GraphQL
-                  </Link>{" "}
-                  mutation demo, to provide a starting point for app development.
-                </Text>
-              </BlockStack>
-            </Card>
-
-            <Card>
-              <BlockStack gap="200">
-                <Text as="h2" variant="headingMd">
-                  Get started with products
-                </Text>
-                <Text as="p">
-                  Generate a product with GraphQL and get the JSON output for that product. Learn more about the{" "}
-                  <Link
-                    url="https://shopify.dev/docs/api/admin-graphql/latest/mutations/productCreate"
-                    target="_blank"
+            {isGuideVisible ? (
+              <Card>
+                <BlockStack gap="300">
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr auto",
+                      gap: "12px",
+                      alignItems: "start",
+                    }}
                   >
-                    productCreate
-                  </Link>{" "}
-                  mutation in our API references.
-                </Text>
-                <InlineStack gap="200">
-                  <Button onClick={generateProduct} loading={isLoading} disabled={!isSettingsReady}>
-                    Generate a product
-                  </Button>
-                  {product && (
-                    <Button
-                      variant="tertiary"
-                      disabled={!isSettingsReady}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isGuideOpen}
                       onClick={() => {
-                        shopify.intents.invoke?.("edit:shopify/Product", {
-                          value: product?.id,
-                        });
+                        if (!isGuideOpen) setIsGuideOpen(true);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          if (!isGuideOpen) setIsGuideOpen(true);
+                        }
+                      }}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <BlockStack gap="100">
+                        <Text as="h2" variant="headingMd">
+                          セットアップガイド
+                        </Text>
+                        <Text as="p">
+                          このガイドに沿ってアプリの初期設定を完了してください。
+                        </Text>
+                        <Text as="p" tone="subdued">
+                          {completedSteps} / {totalSteps} ステップ完了
+                        </Text>
+                      </BlockStack>
+                    </div>
+                    <InlineStack gap="200" blockAlign="center" wrap={false}>
+                      <Button
+                        accessibilityLabel="ガイドを閉じる"
+                        variant="tertiary"
+                        icon={XIcon}
+                        onClick={() => setIsGuideVisible(false)}
+                      />
+                      <Button
+                        accessibilityLabel="ガイドの開閉"
+                        variant="tertiary"
+                        icon={isGuideOpen ? ChevronUpIcon : ChevronDownIcon}
+                        onClick={() => setIsGuideOpen((prev) => !prev)}
+                      />
+                    </InlineStack>
+                  </div>
+                  <Collapsible open={isGuideOpen} id="setup-guide">
+                    <div
+                      style={{
+                        borderRadius: 12,
+                        border: "1px solid #e5e7eb",
+                        background: "#ffffff",
                       }}
                     >
-                      Edit product
-                    </Button>
-                  )}
-                </InlineStack>
-
-                {product ? (
-                  <BlockStack gap="200">
-                    <Text as="h3" variant="headingSm">
-                      productCreate mutation
-                    </Text>
-                    <div style={{margin: 0}}>
-                      <pre style={{margin: 0}}>
-                        <code>{JSON.stringify(product, null, 2)}</code>
-                      </pre>
+                      {steps.map((step, index) => {
+                        const isOpen = openStepId === step.id;
+                        const isDone = isStepDone(step.id, step.done);
+                        return (
+                          <div key={step.id}>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            aria-expanded={isOpen}
+                            onClick={() => {
+                              if (openStepId !== step.id) {
+                                setOpenStepId(step.id);
+                              }
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                if (openStepId !== step.id) {
+                                  setOpenStepId(step.id);
+                                }
+                              }
+                            }}
+                            style={{
+                              padding: "12px",
+                              display: "grid",
+                              gridTemplateColumns: "1fr",
+                              alignItems: "center",
+                              gap: "12px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <InlineStack gap="200" blockAlign="center">
+                              <div
+                                onClick={(event) => event.stopPropagation()}
+                                onKeyDown={(event) => event.stopPropagation()}
+                              >
+                                <Checkbox
+                                  label="完了"
+                                  labelHidden
+                                  checked={isDone}
+                                  onChange={(value) =>
+                                    setCompletionOverrides((prev) => ({
+                                      ...prev,
+                                      [step.id]: value,
+                                    }))
+                                  }
+                                />
+                              </div>
+                              <Text as="span" variant="bodyMd">
+                                {step.title}
+                              </Text>
+                            </InlineStack>
+                          </div>
+                            <Collapsible open={isOpen} id={`setup-step-${step.id}`}>
+                              <div style={{ padding: "0 12px 12px" }}>
+                                <div
+                                  style={{
+                                    padding: "12px",
+                                    borderRadius: 12,
+                                    background: "#f5f6f7",
+                                  }}
+                                >
+                                  <BlockStack gap="200">
+                                    <Text as="p">{step.detail}</Text>
+                                    <InlineStack gap="200" wrap>
+                                      <Button url={step.url} variant="primary">
+                                        {step.actionLabel}
+                                      </Button>
+                                    </InlineStack>
+                                  </BlockStack>
+                                </div>
+                              </div>
+                            </Collapsible>
+                            {index < steps.length - 1 ? <Divider /> : null}
+                          </div>
+                        );
+                      })}
                     </div>
-                    <Text as="h3" variant="headingSm">
-                      productVariantsBulkUpdate mutation
-                    </Text>
-                    <div style={{margin: 0}}>
-                      <pre style={{margin: 0}}>
-                        <code>{JSON.stringify(variant, null, 2)}</code>
-                      </pre>
-                    </div>
-                  </BlockStack>
-                ) : null}
-              </BlockStack>
-            </Card>
-          </BlockStack>
-        </Layout.Section>
-
-        <Layout.Section variant="oneThird">
-          <BlockStack gap="400">
-            <Card>
-              <BlockStack gap="200">
-                <Text as="h2" variant="headingMd">
-                  App template specs
-                </Text>
-                <List>
-                  <List.Item>
-                    Framework: <Link url="https://reactrouter.com/" target="_blank">React Router</Link>
-                  </List.Item>
-                  <List.Item>
-                    Interface: <Text as="span">Polaris (React)</Text>
-                  </List.Item>
-                  <List.Item>
-                    API: <Link url="https://shopify.dev/docs/api/admin-graphql" target="_blank">GraphQL</Link>
-                  </List.Item>
-                  <List.Item>
-                    Database: <Link url="https://www.prisma.io/" target="_blank">Prisma</Link>
-                  </List.Item>
-                </List>
-              </BlockStack>
-            </Card>
-
-            <Card>
-              <BlockStack gap="200">
-                <Text as="h2" variant="headingMd">
-                  Next steps
-                </Text>
-                <List>
-                  <List.Item>
-                    <Link
-                      url="https://shopify.dev/docs/apps/getting-started/build-app-example"
-                      target="_blank"
-                    >
-                      Build an example app
-                    </Link>
-                  </List.Item>
-                  <List.Item>
-                    <Link url="https://shopify.dev/docs/apps/tools/graphiql-admin-api" target="_blank">
-                      Explore Shopify&apos;s API with GraphiQL
-                    </Link>
-                  </List.Item>
-                </List>
-              </BlockStack>
-            </Card>
+                  </Collapsible>
+                </BlockStack>
+              </Card>
+            ) : null}
           </BlockStack>
         </Layout.Section>
       </Layout>

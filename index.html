@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Setup guide mock (accordion)</title>
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --text: #111827;
+      --muted: #6b7280;
+
+      --surface-subdued: #f5f6f7;
+      --radius-lg: 14px;
+      --radius-md: 12px;
+      --shadow: 0 1px 0 rgba(0, 0, 0, .04);
+
+      --btn-bg: #111;
+      --btn-border: rgba(0, 0, 0, .75);
+      --success-bg: #ecfdf5;
+      --success-border: #a7f3d0;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .page {
+      padding: 28px;
+    }
+
+    /* Outer card */
+    .guideCard {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      max-width: 1400px;
+    }
+
+    /* Card header (accordion trigger) */
+    .cardHeaderBtn {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      padding: 2px 4px 10px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .cardHeaderGrid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .guideTitle {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: .2px;
+      margin: 0 0 8px 0;
+    }
+
+    .guideDesc {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: #374151;
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+
+    .cardHeaderRight {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .iconBtn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .iconBtn:active {
+      transform: translateY(1px);
+    }
+
+    .chev {
+      width: 18px;
+      height: 18px;
+      transition: transform .18s ease;
+    }
+
+    .is-collapsed .chev {
+      transform: rotate(180deg);
+    }
+
+    /* Collapsible content wrapper */
+    .cardBody {
+      padding: 4px 4px 6px;
+    }
+
+    .cardBody[hidden] {
+      display: none;
+    }
+
+    /* Steps */
+    .steps {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .step {
+      border-radius: var(--radius-md);
+      border: 1px solid #eef0f2;
+      background: var(--surface-subdued);
+      overflow: hidden;
+    }
+
+    /* Step header row (accordion trigger) */
+    .stepHeader {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    /* 왼쪽: dashed ring */
+    .iconRing {
+      width: 28px;
+      height: 28px;
+      flex: 0 0 28px;
+    }
+
+    .stepTitle {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .stepHeaderRight {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Checkbox */
+    .chk {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .chk input {
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      border: 2px solid #c7cad1;
+      background: #fff;
+      display: inline-block;
+      position: relative;
+      outline: none;
+    }
+
+    .chk input:checked {
+      border-color: #0f766e;
+      background: #0f766e;
+    }
+
+    .chk input:checked::after {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 1px;
+      width: 6px;
+      height: 10px;
+      border-right: 2px solid #fff;
+      border-bottom: 2px solid #fff;
+      transform: rotate(40deg);
+    }
+
+    .stepChev {
+      width: 18px;
+      height: 18px;
+      transition: transform .18s ease;
+      opacity: .8;
+    }
+
+    .step.is-open .stepChev {
+      transform: rotate(180deg);
+    }
+
+    /* Step body */
+    .stepBody {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 18px;
+      padding: 0 14px 14px;
+    }
+
+    .stepBody[hidden] {
+      display: none;
+    }
+
+    .stepBodyInner {
+      padding: 12px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid var(--border);
+    }
+
+    .stepDesc {
+      margin: 0 0 10px 0;
+      color: #4b5563;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .primaryBtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 40px;
+      padding: 0 18px;
+      border-radius: 999px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg);
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      width: fit-content;
+      box-shadow: 0 2px 0 rgba(0, 0, 0, .2);
+      text-decoration: none;
+    }
+
+    .mockImage {
+      border-radius: 12px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      height: 150px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .mockImage svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Completed state styling */
+    .step.is-completed {
+      background: var(--success-bg);
+      border-color: var(--success-border);
+    }
+
+    .step.is-completed .stepTitle {
+      color: #065f46;
+    }
+
+    @media (max-width: 920px) {
+      .stepBody {
+        grid-template-columns: 1fr;
+      }
+
+      .mockImage {
+        height: 170px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <section class="guideCard" id="setupGuide" aria-label="セットアップガイド">
+      <!-- Card header accordion -->
+      <div class="cardHeaderGrid">
+        <button class="cardHeaderBtn" type="button" id="cardToggle" aria-expanded="true" aria-controls="cardBody">
+          <h1 class="guideTitle">Search &amp; Discoveryの使用を開始する</h1>
+          <p class="guideDesc">
+            こちらのパーソナライズされたガイドを参考にしながら、ストアフロントでの検索環境をカスタマイズしましょう。
+          </p>
+          <div class="pill" id="progressPill">3中0件が完了</div>
+        </button>
+
+        <div class="cardHeaderRight">
+          <!-- 右上の開閉ボタン（ヘッダ全体クリックも可） -->
+          <button class="iconBtn is-collapsed" type="button" id="cardChevBtn" aria-label="ガイドの開閉" aria-expanded="true">
+            <svg class="chev" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M5 12l5-5 5 5" fill="none" stroke="#111827" stroke-width="2.2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card body -->
+      <div class="cardBody" id="cardBody">
+        <div class="steps" id="stepsRoot">
+          <!-- Step 1 -->
+          <article class="step is-open" data-step-id="filters">
+            <div class="stepHeader" role="button" tabindex="0" aria-expanded="true">
+              <svg class="iconRing" viewBox="0 0 28 28" aria-hidden="true">
+                <circle cx="14" cy="14" r="11" fill="none" stroke="#a3a6ad" stroke-width="3" stroke-linecap="round"
+                  stroke-dasharray="2 6" />
+              </svg>
+
+              <h2 class="stepTitle">自分のフィルターをカスタマイズする</h2>
+
+              <div class="stepHeaderRight">
+                <!-- checkbox: click only toggles completion (and should NOT open/close) -->
+                <label class="chk" aria-label="完了にする">
+                  <input type="checkbox" class="stepCheck" />
+                </label>
+                <svg class="stepChev" viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M5 12l5-5 5 5" fill="none" stroke="#111827" stroke-width="2.2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </div>
+            </div>
+
+            <div class="stepBody">
+              <div class="stepBodyInner">
+                <p class="stepDesc">
+                  コレクションや検索結果ページで、お客様がcolorなどの商品属性でフィルタリングできるようにします。
+                </p>
+                <a class="primaryBtn" href="javascript:void(0)">絞り込みをカスタマイズ</a>
+              </div>
+
+              <div class="mockImage" aria-label="イメージ（プレースホルダー）">
+                <svg viewBox="0 0 420 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                  <rect x="0" y="0" width="420" height="220" fill="#ffffff" />
+                  <rect x="28" y="26" width="360" height="44" rx="10" fill="#2f343a" />
+                  <path d="M60 48c10-10 20 10 30 0s20 10 30 0 20 10 30 0" fill="none" stroke="#ffffff" stroke-width="6"
+                    stroke-linecap="round" />
+                  <rect x="46" y="84" width="110" height="118" rx="10" fill="#f3f4f6" stroke="#e5e7eb" />
+                  <rect x="64" y="104" width="76" height="10" rx="5" fill="#d1d5db" />
+                  <rect x="64" y="124" width="58" height="10" rx="5" fill="#e5e7eb" />
+                  <rect x="64" y="144" width="70" height="10" rx="5" fill="#e5e7eb" />
+                  <rect x="64" y="164" width="64" height="10" rx="5" fill="#e5e7eb" />
+                  <rect x="182" y="98" width="86" height="86" rx="14" fill="#f3f4f6" stroke="#e5e7eb" />
+                  <rect x="292" y="98" width="86" height="86" rx="14" fill="#f3f4f6" stroke="#e5e7eb" />
+                  <rect x="200" y="196" width="50" height="10" rx="5" fill="#6aa7b4" />
+                  <rect x="310" y="196" width="50" height="10" rx="5" fill="#6aa7b4" />
+                  <rect x="54" y="118" width="14" height="14" rx="3" fill="#0f766e" />
+                  <path d="M57 125l3 3 6-7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                  <rect x="54" y="158" width="14" height="14" rx="3" fill="#0f766e" />
+                  <path d="M57 165l3 3 6-7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </div>
+            </div>
+          </article>
+
+          <!-- Step 2 -->
+          <article class="step" data-step-id="translate">
+            <div class="stepHeader" role="button" tabindex="0" aria-expanded="false">
+              <svg class="iconRing" viewBox="0 0 28 28" aria-hidden="true">
+                <circle cx="14" cy="14" r="11" fill="none" stroke="#a3a6ad" stroke-width="3" stroke-linecap="round"
+                  stroke-dasharray="2 6" />
+              </svg>
+
+              <h2 class="stepTitle">絞り込みの内容を翻訳する</h2>
+
+              <div class="stepHeaderRight">
+                <label class="chk" aria-label="完了にする">
+                  <input type="checkbox" class="stepCheck" />
+                </label>
+                <svg class="stepChev" viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M5 12l5-5 5 5" fill="none" stroke="#111827" stroke-width="2.2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </div>
+            </div>
+
+            <div class="stepBody" hidden>
+              <div class="stepBodyInner">
+                <p class="stepDesc">
+                  フィルターや検索ページに表示される文言を、ストアの言語に合わせて整えます。
+                </p>
+                <a class="primaryBtn" href="javascript:void(0)">翻訳を管理</a>
+              </div>
+
+              <div class="mockImage" aria-label="イメージ（プレースホルダー）"></div>
+            </div>
+          </article>
+
+          <!-- Step 3 -->
+          <article class="step" data-step-id="synonyms">
+            <div class="stepHeader" role="button" tabindex="0" aria-expanded="false">
+              <svg class="iconRing" viewBox="0 0 28 28" aria-hidden="true">
+                <circle cx="14" cy="14" r="11" fill="none" stroke="#a3a6ad" stroke-width="3" stroke-linecap="round"
+                  stroke-dasharray="2 6" />
+              </svg>
+
+              <h2 class="stepTitle">検索用の類義語を追加する</h2>
+
+              <div class="stepHeaderRight">
+                <label class="chk" aria-label="完了にする">
+                  <input type="checkbox" class="stepCheck" />
+                </label>
+                <svg class="stepChev" viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M5 12l5-5 5 5" fill="none" stroke="#111827" stroke-width="2.2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </div>
+            </div>
+
+            <div class="stepBody" hidden>
+              <div class="stepBodyInner">
+                <p class="stepDesc">
+                  お客様が使いがちな別の呼び方（例：スニーカー / 運動靴）を追加して検索精度を上げます。
+                </p>
+                <a class="primaryBtn" href="javascript:void(0)">類義語を追加</a>
+              </div>
+
+              <div class="mockImage" aria-label="イメージ（プレースホルダー）"></div>
+            </div>
+          </article>
+
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ---- Card accordion (whole guide) ----
+    const cardToggle = document.getElementById('cardToggle');
+    const cardChevBtn = document.getElementById('cardChevBtn');
+    const cardBody = document.getElementById('cardBody');
+
+    const setCardOpen = (open) => {
+      cardBody.hidden = !open;
+      cardToggle.setAttribute('aria-expanded', String(open));
+      cardChevBtn.setAttribute('aria-expanded', String(open));
+      cardChevBtn.classList.toggle('is-collapsed', !open);
+    };
+
+    const isCardOpen = () => !cardBody.hidden;
+
+    cardToggle.addEventListener('click', () => setCardOpen(!isCardOpen()));
+    cardChevBtn.addEventListener('click', () => setCardOpen(!isCardOpen()));
+
+    // ---- Step accordions ----
+    const stepsRoot = document.getElementById('stepsRoot');
+    const progressPill = document.getElementById('progressPill');
+
+    const getSteps = () => Array.from(stepsRoot.querySelectorAll('.step'));
+
+    const updateProgress = () => {
+      const steps = getSteps();
+      const completed = steps.filter(s => s.classList.contains('is-completed')).length;
+      progressPill.textContent = `${steps.length}中${completed}件が完了`;
+    };
+
+    const setStepOpen = (stepEl, open) => {
+      const header = stepEl.querySelector('.stepHeader');
+      const body = stepEl.querySelector('.stepBody');
+
+      stepEl.classList.toggle('is-open', open);
+      header.setAttribute('aria-expanded', String(open));
+      body.hidden = !open;
+    };
+
+    const toggleStepOpen = (stepEl) => {
+      const open = stepEl.classList.contains('is-open');
+      setStepOpen(stepEl, !open);
+    };
+
+    // Step header click: open/close
+    stepsRoot.addEventListener('click', (e) => {
+      const target = e.target;
+
+      // If checkbox clicked, do NOT toggle accordion
+      if (target instanceof HTMLElement && target.closest('.chk')) return;
+
+      const header = target.closest('.stepHeader');
+      if (!header) return;
+
+      const step = header.closest('.step');
+      if (!step) return;
+
+      toggleStepOpen(step);
+    });
+
+    // Keyboard: Enter / Space on step header
+    stepsRoot.addEventListener('keydown', (e) => {
+      const key = e.key;
+      const target = e.target;
+
+      if (!(target instanceof HTMLElement)) return;
+      if (!target.classList.contains('stepHeader')) return;
+
+      if (key === 'Enter' || key === ' ') {
+        e.preventDefault();
+        const step = target.closest('.step');
+        if (!step) return;
+        toggleStepOpen(step);
+      }
+    });
+
+    // Checkbox: toggle completed
+    stepsRoot.addEventListener('change', (e) => {
+      const input = e.target;
+      if (!(input instanceof HTMLInputElement)) return;
+      if (!input.classList.contains('stepCheck')) return;
+
+      const step = input.closest('.step');
+      if (!step) return;
+
+      const checked = input.checked;
+      step.classList.toggle('is-completed', checked);
+
+      updateProgress();
+    });
+
+    // Initial
+    setCardOpen(true);
+    updateProgress();
+  </script>
+</body>
+
+</html>
