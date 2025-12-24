@@ -25,7 +25,7 @@ async function main() {
       deliverySource: "metafield",
       deliveryKey: "shipping.requested_date",
       deliveryFormat: "YYYY-MM-DD",
-      saveMetafield: false,
+      saveMetafield: true,
       saveTag: true,
       saveTagFormat: "ship-by-{YYYY}-{MM}-{DD}",
       language: "ja",

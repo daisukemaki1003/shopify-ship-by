@@ -8,6 +8,7 @@ import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prism
 import { DeliveryMethod } from "@shopify/shopify-api";
 import prisma from "./db.server";
 import { upsertShopFromSession } from "./services/shop.server";
+import { ensureShipByMetafieldDefinition } from "./services/ship-by-metafield.server";
 
 const defaultScopes = [
   "read_orders",
@@ -49,6 +50,11 @@ const shopify = shopifyApp({
     afterAuth: async ({ session }) => {
       await upsertShopFromSession(session);
       await shopify.registerWebhooks({ session });
+      try {
+        await ensureShipByMetafieldDefinition(session.shop);
+      } catch (error) {
+        console.error("[shopify] failed to ensure ship-by metafield", error);
+      }
     },
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN

@@ -11,6 +11,7 @@ import {
   type ShopifyOrderLike,
   type ShopSettingLike,
 } from "./ship-by.server";
+import { buildShipByMetafieldInput } from "./ship-by-metafield.server";
 
 const DEFAULT_TAG_FORMAT = "ship-by-{YYYY}-{MM}-{DD}";
 
@@ -22,6 +23,15 @@ const parseOrderId = (value: unknown): { id: string | number | null; bigInt: big
     return { id: value, bigInt: BigInt(value) };
   }
   return { id: null, bigInt: BigInt(0) };
+};
+
+const resolveOrderGid = (payload: unknown, orderId: string | number) => {
+  const raw = (payload as { admin_graphql_api_id?: unknown } | null | undefined)
+    ?.admin_graphql_api_id;
+  if (typeof raw === "string" && raw.startsWith("gid://")) {
+    return { gid: raw, fallback: false };
+  }
+  return { gid: `gid://shopify/Order/${orderId}`, fallback: true };
 };
 
 const extractShopSetting = (setting: ShopSetting | null): ShopSettingLike => ({
@@ -172,6 +182,56 @@ const saveTags = async ({
   }
 };
 
+const saveShipByMetafield = async ({
+  shop,
+  orderId,
+  shipBy,
+  payload,
+}: {
+  shop: string;
+  orderId: string | number;
+  shipBy: Date;
+  payload: unknown;
+}) => {
+  const { admin, withRetry } = await getAdminClient(shop);
+  const resolved = resolveOrderGid(payload, orderId);
+  const metafields = [buildShipByMetafieldInput(resolved.gid, shipBy)];
+
+  const response = (await withRetry(
+    () =>
+      admin.graphql(
+        `#graphql
+        mutation ShipByMetafieldSet($metafields: [MetafieldsSetInput!]!) {
+          metafieldsSet(metafields: $metafields) {
+            metafields {
+              id
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }`,
+        { variables: { metafields } },
+      ),
+    { action: "metafields_set" },
+  )) as Response;
+
+  if (!response.ok) {
+    throw new Error(`metafieldsSet failed: ${response.status} ${response.statusText}`);
+  }
+
+  const json = await response.json();
+  if (Array.isArray(json?.errors) && json.errors.length > 0) {
+    throw new Error(`metafieldsSet graphql errors: ${JSON.stringify(json.errors)}`);
+  }
+
+  const userErrors = json?.data?.metafieldsSet?.userErrors ?? [];
+  if (Array.isArray(userErrors) && userErrors.length > 0) {
+    throw new Error(`metafieldsSet userErrors: ${JSON.stringify(userErrors)}`);
+  }
+};
+
 const recordError = async (
   shop: string,
   orderId: string | number | null,
@@ -233,6 +293,16 @@ export const handleOrdersCreate = async (shop: string, payload: unknown) => {
 
     const shipBy = calcResult.value.shipBy;
     const saveTagEnabled = setting?.saveTag === true;
+    const saveMetafieldEnabled = setting?.saveMetafield !== false;
+
+    if (saveMetafieldEnabled) {
+      await saveShipByMetafield({
+        shop,
+        orderId,
+        shipBy,
+        payload,
+      });
+    }
 
     if (saveTagEnabled) {
       await saveTags({

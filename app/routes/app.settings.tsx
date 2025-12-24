@@ -238,7 +238,7 @@ export const action = async ({request}: ActionFunctionArgs) => {
       deliveryKey: rawKey,
       deliveryFormat: rawFormat || null,
       saveTag,
-      saveMetafield: false,
+      saveMetafield: true,
       saveTagFormat: rawSaveTagFormat || null,
     },
     update: {
@@ -247,7 +247,7 @@ export const action = async ({request}: ActionFunctionArgs) => {
       deliveryKey: rawKey,
       deliveryFormat: rawFormat || null,
       saveTag,
-      saveMetafield: false,
+      saveMetafield: true,
       saveTagFormat: rawSaveTagFormat || null,
     },
   });
