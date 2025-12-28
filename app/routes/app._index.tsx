@@ -1,11 +1,10 @@
-import { useState } from "react";
-import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useLoaderData } from "react-router";
+import {useState} from "react";
+import type {HeadersFunction, LoaderFunctionArgs} from "react-router";
+import {useLoaderData} from "react-router";
 import {
   BlockStack,
   Button,
   Card,
-  Checkbox,
   Collapsible,
   Divider,
   InlineStack,
@@ -13,19 +12,20 @@ import {
   Page,
   Text,
 } from "@shopify/polaris";
-import { ChevronDownIcon, ChevronUpIcon, XIcon } from "@shopify/polaris-icons";
+import {ChevronDownIcon, ChevronUpIcon, XIcon} from "@shopify/polaris-icons";
 import prisma from "../db.server";
-import { authenticate } from "../shopify.server";
-import { boundary } from "@shopify/shopify-app-react-router/server";
+import {authenticate} from "../shopify.server";
+import {boundary} from "@shopify/shopify-app-react-router/server";
+import {AsyncCheckButton} from "../components/AsyncCheckButton";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+export const loader = async ({request}: LoaderFunctionArgs) => {
+  const {session} = await authenticate.admin(request);
   const setting = await prisma.shopSetting.findUnique({
-    where: { shopId: session.shop },
-    select: { defaultLeadDays: true, deliverySource: true, deliveryKey: true },
+    where: {shopId: session.shop},
+    select: {defaultLeadDays: true, deliverySource: true, deliveryKey: true},
   });
   const ruleCount = await prisma.rule.count({
-    where: { shopId: session.shop },
+    where: {shopId: session.shop},
   });
 
   return {
@@ -37,7 +37,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function Index() {
-  const { defaultLeadDays, deliverySource, deliveryKey, hasRules } =
+  const {defaultLeadDays, deliverySource, deliveryKey, hasRules} =
     useLoaderData<typeof loader>();
   const isLeadDaysReady = defaultLeadDays != null && defaultLeadDays > 0;
   const isDeliveryReady =
@@ -76,12 +76,7 @@ export default function Index() {
     },
   ];
   const totalSteps = steps.length;
-  const [completionOverrides, setCompletionOverrides] = useState<Record<string, boolean>>({});
-  const isStepDone = (stepId: string, fallback: boolean) =>
-    completionOverrides[stepId] ?? fallback;
-  const completedSteps = steps.filter((step) =>
-    isStepDone(step.id, step.done),
-  ).length;
+  const completedSteps = steps.filter((step) => step.done).length;
   const [isGuideVisible, setIsGuideVisible] = useState(true);
   const [isGuideOpen, setIsGuideOpen] = useState(true);
   const [openStepId, setOpenStepId] = useState(() => {
@@ -118,7 +113,7 @@ export default function Index() {
                           setIsGuideOpen((prev) => !prev);
                         }
                       }}
-                      style={{ cursor: "pointer" }}
+                      style={{cursor: "pointer"}}
                     >
                       <BlockStack gap="100">
                         <Text as="h2" variant="headingMd">
@@ -157,59 +152,45 @@ export default function Index() {
                     >
                       {steps.map((step, index) => {
                         const isOpen = openStepId === step.id;
-                        const isDone = isStepDone(step.id, step.done);
+                        const isDone = false;
+                        // const isDone = step.done;
                         return (
                           <div key={step.id}>
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            aria-expanded={isOpen}
-                            onClick={() => {
-                              if (openStepId !== step.id) {
-                                setOpenStepId(step.id);
-                              }
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              aria-expanded={isOpen}
+                              onClick={() => {
                                 if (openStepId !== step.id) {
                                   setOpenStepId(step.id);
                                 }
-                              }
-                            }}
-                            style={{
-                              padding: "12px",
-                              display: "grid",
-                              gridTemplateColumns: "1fr",
-                              alignItems: "center",
-                              gap: "12px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <InlineStack gap="200" blockAlign="center">
-                              <div
-                                onClick={(event) => event.stopPropagation()}
-                                onKeyDown={(event) => event.stopPropagation()}
-                              >
-                                <Checkbox
-                                  label="完了"
-                                  labelHidden
-                                  checked={isDone}
-                                  onChange={(value) =>
-                                    setCompletionOverrides((prev) => ({
-                                      ...prev,
-                                      [step.id]: value,
-                                    }))
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  if (openStepId !== step.id) {
+                                    setOpenStepId(step.id);
                                   }
-                                />
-                              </div>
-                              <Text as="span" variant="bodyMd">
-                                {step.title}
-                              </Text>
-                            </InlineStack>
-                          </div>
+                                }
+                              }}
+                              style={{
+                                padding: "12px",
+                                display: "grid",
+                                gridTemplateColumns: "1fr",
+                                alignItems: "center",
+                                gap: "12px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <InlineStack gap="200" blockAlign="center">
+                                <AsyncCheckButton label={step.title} checked={isDone} />
+                                <Text as="span" variant="bodyMd">
+                                  {step.title}
+                                </Text>
+                              </InlineStack>
+                            </div>
                             <Collapsible open={isOpen} id={`setup-step-${step.id}`}>
-                              <div style={{ padding: "0 12px 12px" }}>
+                              <div style={{padding: "0 12px 12px"}}>
                                 <div
                                   style={{
                                     padding: "12px",
