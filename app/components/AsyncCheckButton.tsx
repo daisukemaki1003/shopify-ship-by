@@ -21,9 +21,9 @@ export function AsyncCheckButton({
     : checked
       ? `${label} は完了`
       : `${label} は未完了`;
-  const borderStyle = checked ? "solid" : "dotted";
-  const borderColor = checked ? "#000" : "var(--p-color-border-secondary)";
+  const border = checked ? "1px solid #000" : "1px solid transparent";
   const background = checked ? "#000" : "var(--p-color-bg-surface)";
+  const ringColor = "var(--p-color-text)";
   const iconColor = checked ? "#fff" : "inherit";
 
   return (
@@ -35,7 +35,7 @@ export function AsyncCheckButton({
         width: size,
         height: size,
         borderRadius: "999px",
-        border: `1px ${borderStyle} ${borderColor}`,
+        border,
         background,
         padding: 0,
         display: "inline-flex",
@@ -49,7 +49,20 @@ export function AsyncCheckButton({
         <span style={{ color: iconColor }}>
           <Icon source={CheckIcon} tone="inherit" />
         </span>
-      ) : null}
+      ) : (
+        <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true">
+          <circle
+            cx="10"
+            cy="10"
+            r="8"
+            fill="none"
+            stroke={ringColor}
+            strokeWidth="2"
+            strokeDasharray="3 4"
+            strokeLinecap="round"
+          />
+        </svg>
+      )}
     </span>
   );
 }
