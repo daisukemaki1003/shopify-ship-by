@@ -110,12 +110,12 @@ export default function Index() {
                       tabIndex={0}
                       aria-expanded={isGuideOpen}
                       onClick={() => {
-                        if (!isGuideOpen) setIsGuideOpen(true);
+                        setIsGuideOpen((prev) => !prev);
                       }}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          if (!isGuideOpen) setIsGuideOpen(true);
+                          setIsGuideOpen((prev) => !prev);
                         }
                       }}
                       style={{ cursor: "pointer" }}
