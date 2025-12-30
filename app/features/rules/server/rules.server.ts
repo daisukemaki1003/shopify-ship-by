@@ -1,11 +1,11 @@
 import type {AdminApiContext} from "@shopify/shopify-app-react-router/server";
 
-import prisma from "../../db.server";
+import prisma from "../../../db.server";
 import {getShippingRates, type ShippingRateEntry} from "../../shipping/server/shipping-rates.server";
 import {parseTargetIds, collectUniqueProductIds} from "../utils/rules";
 import {toFallbackProduct, FALLBACK_PRODUCT_TITLE} from "../utils/products";
 import type {ProductRule, ProductRuleWithProducts, ProductSummary} from "../utils/rule-types";
-import {parsePositiveInt} from "../../shared/utils/validation";
+import {parsePositiveInt} from "../../../shared/utils/validation";
 import {RuleTargetType} from "@prisma/client";
 import {toZoneKey} from "../utils/shipping-zones";
 
@@ -59,7 +59,15 @@ export const fetchProductSummaries = async (
       );
 
       const json = await response.json();
-      const nodes = (json?.data?.nodes ?? []) as any[];
+      const nodes = Array.isArray(json?.data?.nodes)
+        ? (json.data.nodes as Array<{
+            __typename?: string;
+            id?: string;
+            title?: string;
+            featuredImage?: {url?: string | null} | null;
+            images?: {nodes?: Array<{url?: string | null}> | null} | null;
+          }>)
+        : [];
 
       nodes.forEach((node) => {
         if (!node || node.__typename !== "Product" || !node.id) return;

@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { Outlet, useLoaderData, useLocation, useNavigate, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -12,7 +13,7 @@ import { authenticate } from "../shopify.server";
 type PolarisLinkProps = React.HTMLProps<HTMLAnchorElement> & { url: string };
 
 const PolarisLink = forwardRef<HTMLAnchorElement, PolarisLinkProps>(function PolarisLink(
-  { url, onClick, target, ...rest },
+  { url, onClick, target, children, ...rest },
   ref,
 ) {
   const navigate = useNavigate();
@@ -20,11 +21,7 @@ const PolarisLink = forwardRef<HTMLAnchorElement, PolarisLinkProps>(function Pol
   const resolvedHref = url;
 
   const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    try {
-      (onClick as any)?.(event);
-    } catch {
-      (onClick as any)?.();
-    }
+    onClick?.(event);
     if (event.defaultPrevented) return;
     if (event.button !== 0) return;
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -43,7 +40,11 @@ const PolarisLink = forwardRef<HTMLAnchorElement, PolarisLinkProps>(function Pol
     navigate(nextUrl.pathname + nextUrl.search + nextUrl.hash);
   };
 
-  return <a ref={ref} href={resolvedHref} target={target} onClick={handleClick} {...rest} />;
+  return (
+    <a ref={ref} href={resolvedHref} target={target} onClick={handleClick} {...rest}>
+      {children}
+    </a>
+  );
 });
 
 function AppBridgeScript({ apiKey }: { apiKey: string }) {
@@ -87,7 +88,7 @@ export default function App() {
   return (
     <>
       <AppBridgeScript apiKey={apiKey} />
-      <AppProvider i18n={enTranslations} linkComponent={PolarisLink as any}>
+      <AppProvider i18n={enTranslations} linkComponent={PolarisLink as React.ComponentType<PolarisLinkProps>}>
         <NavMenu>
           <a href="/app">Home</a>
           <a href="/app/additional">Additional page</a>

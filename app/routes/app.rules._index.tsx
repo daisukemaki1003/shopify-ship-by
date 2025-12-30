@@ -115,7 +115,13 @@ export const loader = async ({request}: {request: Request}) => {
 
   return {
     configuredSummaries: Array.from(summaryByZoneKey.values())
-      .map(({baseUpdatedAt, seenRuleIds, ...rest}) => rest)
+      .map((summary) => ({
+        zoneKey: summary.zoneKey,
+        zoneName: summary.zoneName,
+        shippingRateCount: summary.shippingRateCount,
+        baseDays: summary.baseDays,
+        individualCount: summary.individualCount,
+      }))
       .sort((a, b) => toZoneLabel(a.zoneName).localeCompare(toZoneLabel(b.zoneName), "ja")),
     allZones: Array.from(zoneMetaByKey.values()).sort((a, b) =>
       toZoneLabel(a.zoneName).localeCompare(toZoneLabel(b.zoneName), "ja"),

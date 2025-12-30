@@ -110,14 +110,19 @@ const resolvePresetValue = (value: string) => {
     : FORMAT_PRESET_CUSTOM;
 };
 
-const buildCandidates = (payload: any): DeliveryCandidate[] => {
-  const nodes = Array.isArray(payload?.data?.metafieldDefinitions?.nodes)
-    ? payload.data.metafieldDefinitions.nodes
-    : [];
+type MetafieldDefinitionNode = {
+  namespace?: unknown;
+  key?: unknown;
+};
+
+const buildCandidates = (payload: unknown): DeliveryCandidate[] => {
+  const rawNodes = (payload as {data?: {metafieldDefinitions?: {nodes?: unknown}}})?.data
+    ?.metafieldDefinitions?.nodes;
+  const nodes = Array.isArray(rawNodes) ? (rawNodes as MetafieldDefinitionNode[]) : [];
   const candidates: DeliveryCandidate[] = [];
   const seen = new Set<string>();
 
-  nodes.forEach((node: any) => {
+  nodes.forEach((node) => {
     const namespace = String(node?.namespace ?? "").trim();
     const key = String(node?.key ?? "").trim();
     if (!namespace || !key) return;

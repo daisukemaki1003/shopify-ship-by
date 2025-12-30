@@ -1,5 +1,47 @@
 import type {ProductSummary} from "./rule-types";
 
+type MediaImage = {
+  url?: unknown;
+  src?: unknown;
+  originalSrc?: unknown;
+  transformedSrc?: unknown;
+};
+
+type MediaPreview = {
+  image?: MediaImage | null;
+};
+
+type FeaturedMedia = {
+  preview?: MediaPreview | null;
+  preview_image?: MediaImage | null;
+  thumbnail?: MediaImage | null;
+};
+
+type ImageNode = MediaImage;
+
+type ImageEdge = {
+  node?: ImageNode | null;
+};
+
+type Images = {
+  nodes?: ImageNode[] | null;
+  edges?: ImageEdge[] | null;
+};
+
+type ProductSelection = {
+  id?: unknown;
+  admin_graphql_api_id?: unknown;
+  title?: unknown;
+  featuredMedia?: FeaturedMedia | null;
+  featured_media?: FeaturedMedia | null;
+  featuredImage?: ImageNode | null;
+  featured_image?: ImageNode | null;
+  image?: ImageNode | null;
+  images?: Images | null;
+  media?: Array<{preview?: MediaPreview | null}> | null;
+  variants?: {edges?: Array<{node?: {image?: MediaImage | null} | null}> | null} | null;
+};
+
 // 商品情報が欠けている場合のデフォルト値
 export const FALLBACK_PRODUCT_TITLE = "商品";
 
@@ -11,7 +53,7 @@ export const toFallbackProduct = (id: string): ProductSummary => ({
 });
 
 // 商品ピッカーのレスポンスから最初に見つかった画像URLを取り出す
-export const pickFirstImageUrl = (item: any): string | null => {
+export const pickFirstImageUrl = (item: ProductSelection | null | undefined): string | null => {
   const candidates = [
     item?.featuredMedia?.preview?.image?.url,
     item?.featuredMedia?.preview?.image?.src,
@@ -63,17 +105,18 @@ export const pickFirstImageUrl = (item: any): string | null => {
 };
 
 // 商品ピッカーから受け取ったアイテムをアプリ内のサマリー形式に変換
-export const selectionToProductSummary = (item: any): ProductSummary | null => {
+export const selectionToProductSummary = (item: unknown): ProductSummary | null => {
   if (!item) return null;
 
-  const id = item.id ?? item.admin_graphql_api_id;
+  const value = item as ProductSelection;
+  const id = value.id ?? value.admin_graphql_api_id;
   if (!id) return null;
   // バリエーションは選択対象外
   const idStr = String(id);
   if (idStr.includes("ProductVariant")) return null;
 
-  const title = item.title ?? FALLBACK_PRODUCT_TITLE;
-  const imageCandidate = pickFirstImageUrl(item);
+  const title = value.title ?? FALLBACK_PRODUCT_TITLE;
+  const imageCandidate = pickFirstImageUrl(value);
 
   return {
     id: String(id),
@@ -81,4 +124,3 @@ export const selectionToProductSummary = (item: any): ProductSummary | null => {
     imageUrl: imageCandidate ? String(imageCandidate) : null,
   };
 };
-

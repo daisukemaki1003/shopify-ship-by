@@ -151,9 +151,50 @@ type EditableProductRule = ProductRuleWithProducts & {
   clientId: string;
 };
 
+type ResourcePickerResult = {selection?: unknown[]} | unknown[];
+
+type ResourcePickerOptions = {
+  type: "product";
+  action: "select";
+  multiple: boolean;
+  filter?: {variants?: boolean};
+  selectionIds?: Array<{id: string}>;
+};
+
+type ShopifyWindow = Window & {
+  shopify?: {
+    resourcePicker?: (options: ResourcePickerOptions) => Promise<ResourcePickerResult | null | undefined>;
+  };
+};
+
+const getSelectionId = (item: unknown) => {
+  const record = item as {id?: unknown; admin_graphql_api_id?: unknown};
+  return record?.id ?? record?.admin_graphql_api_id;
+};
+
+const normalizeProductId = (value: unknown): string | null => {
+  if (value == null) return null;
+  const id = String(value);
+  if (!id || id.includes("ProductVariant")) return null;
+  return id;
+};
+
+// ID配列を商品サマリーに変換し、欠損時はダミーで補完する
+const withProductsForIds = (productIds: string[], products: ProductSummary[]) => {
+  const productMap = new Map(products.map((product) => [product.id, product]));
+  return productIds.map((id) => productMap.get(id) ?? toFallbackProduct(id));
+};
+
+// サーバーからのデータをクライアント側の編集形式へ変換
+const hydrateRow = (rule: ProductRuleWithProducts, idx: number): EditableProductRule => ({
+  ...rule,
+  products: withProductsForIds(rule.productIds, rule.products ?? []),
+  clientId: rule.id ?? `existing-${idx}`,
+});
+
 // 配送レートごとの出荷ルール詳細・編集ページ
 export default function RuleDetailPage() {
-  const {zone, rates, base, productRules, flashMessage, defaultLeadDays} = useLoaderData<LoaderData>();
+  const {zone, base, productRules, flashMessage, defaultLeadDays} = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
   const location = useLocation();
   const baseDaysFromLoader = base ? String(base.days) : "";
@@ -163,22 +204,6 @@ export default function RuleDetailPage() {
   const bannerTone = actionData ? "critical" : flashMessage?.tone ?? "success";
   const successMessage = bannerTone === "success" ? bannerText : null;
   const errorMessage = bannerTone === "critical" ? bannerText : null;
-
-  // ID配列を商品サマリーに変換し、欠損時はダミーで補完する
-  const withProductsForIds = (productIds: string[], products: ProductSummary[]) => {
-    const productMap = new Map(products.map((product) => [product.id, product]));
-    return productIds.map(
-      (id) =>
-        productMap.get(id) ?? toFallbackProduct(id),
-    );
-  };
-
-  // サーバーからのデータをクライアント側の編集形式へ変換
-  const hydrateRow = (rule: ProductRuleWithProducts, idx: number): EditableProductRule => ({
-    ...rule,
-    products: withProductsForIds(rule.productIds, rule.products ?? []),
-    clientId: rule.id ?? `existing-${idx}`,
-  });
 
   const [productRows, setProductRows] = useState<EditableProductRule[]>(() =>
     productRules.map((rule, idx) => hydrateRow(rule, idx)),
@@ -199,7 +224,7 @@ export default function RuleDetailPage() {
   // Shopifyのリソースピッカーで商品選択を行い、行の内容を更新
   const openProductPicker = async (index: number) => {
     try {
-      const picker = (window as any)?.shopify?.resourcePicker;
+      const picker = (window as ShopifyWindow)?.shopify?.resourcePicker;
       if (typeof picker !== "function") {
         console.error("shopify.resourcePicker is not available");
         return;
@@ -212,24 +237,23 @@ export default function RuleDetailPage() {
         selectionIds: productRows[index]?.productIds?.map((id) => ({id})),
       });
       if (!result) return;
-      const selectionItems = Array.isArray(result) ? result : result?.selection ?? [];
-      const isProductId = (value: any) => {
-        if (!value) return false;
-        const id = String(value);
-        return !id.includes("ProductVariant");
-      };
-      const summaries = (selectionItems as any[])
+      const selectionItems = Array.isArray(result)
+        ? result
+        : Array.isArray(result?.selection)
+          ? result.selection
+          : [];
+      const summaries = selectionItems
         .map((item) => selectionToProductSummary(item))
-        .filter(Boolean) as ProductSummary[];
+        .filter((item): item is ProductSummary => Boolean(item));
       const selectionMap = new Map(summaries.map((item) => [item.id, item]));
 
       const ids = Array.from(
         new Set(
-          (selectionItems as any[])
-            .map((item) => item?.id || item?.admin_graphql_api_id)
-            .filter((value) => isProductId(value)),
+          selectionItems
+            .map((item) => normalizeProductId(getSelectionId(item)))
+            .filter((value): value is string => Boolean(value)),
         ),
-      ).map(String);
+      );
       setProductRows((prev) =>
         prev.map((row, idx) => {
           if (idx !== index) return row;

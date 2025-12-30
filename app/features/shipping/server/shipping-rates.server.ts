@@ -1,6 +1,6 @@
-import prisma from "../../db.server";
-import { apiVersion } from "../../shopify.server";
-import { getAdminClient } from "../../server/admin-client.server";
+import prisma from "../../../db.server";
+import { apiVersion } from "../../../shopify.server";
+import { getAdminClient } from "../../../server/admin-client.server";
 
 type RawShippingRate = {
   code?: string | null;
@@ -29,7 +29,7 @@ export type ShippingRateEntry = {
 
 const shouldDebugShippingRates = () => process.env.DEBUG_SHIPPING_RATES === "1";
 
-const debugShippingRates = (...args: any[]) => {
+const debugShippingRates = (...args: unknown[]) => {
   if (!shouldDebugShippingRates()) return;
   // eslint-disable-next-line no-console
   console.log("[shipping-rates]", ...args);
@@ -302,9 +302,6 @@ export async function getShippingRates(
 
 export async function syncShippingRates(shop: string) {
   const rates = await fetchShippingRates(shop);
-  const existing = await prisma.shippingRate.findMany({
-    where: { shopId: shop },
-  });
   await writeShippingRateCache(shop, rates);
 
   return rates;

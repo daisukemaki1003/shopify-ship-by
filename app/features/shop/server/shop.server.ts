@@ -1,6 +1,6 @@
 import type { Session } from "@shopify/shopify-api";
 
-import prisma from "../../db.server";
+import prisma from "../../../db.server";
 
 // Prisma client in this environment lacks generated Shop types; cast for now.
 type ShopDelegate = {
