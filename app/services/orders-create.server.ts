@@ -253,6 +253,41 @@ const recordError = async (
   }
 };
 
+const recordShipBy = async ({
+  shop,
+  orderId,
+  shipBy,
+  deliveryDate,
+}: {
+  shop: string;
+  orderId: string | number | null;
+  shipBy: Date;
+  deliveryDate: Date;
+}) => {
+  if (!orderId) return;
+
+  try {
+    const parsed = parseOrderId(orderId);
+    if (!parsed.id) return;
+
+    await prisma.shipByRecord.upsert({
+      where: { shopId_orderId: { shopId: shop, orderId: parsed.bigInt } },
+      create: {
+        shopId: shop,
+        orderId: parsed.bigInt,
+        shipByDate: shipBy,
+        deliveryDate,
+      },
+      update: {
+        shipByDate: shipBy,
+        deliveryDate,
+      },
+    });
+  } catch (err) {
+    console.error("[orders-create] failed to record ship-by", err);
+  }
+};
+
 export const handleOrdersCreate = async (shop: string, payload: unknown) => {
   const { id: orderId } = parseOrderId(
     (payload as { id?: string | number | null } | null | undefined)?.id,
@@ -292,8 +327,16 @@ export const handleOrdersCreate = async (shop: string, payload: unknown) => {
     }
 
     const shipBy = calcResult.value.shipBy;
+    const deliveryDate = calcResult.value.deliveryDate;
     const saveTagEnabled = setting?.saveTag === true;
     const saveMetafieldEnabled = setting?.saveMetafield !== false;
+
+    await recordShipBy({
+      shop,
+      orderId,
+      shipBy,
+      deliveryDate,
+    });
 
     if (saveMetafieldEnabled) {
       await saveShipByMetafield({

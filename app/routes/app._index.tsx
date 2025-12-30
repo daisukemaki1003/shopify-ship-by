@@ -17,6 +17,8 @@ import prisma from "../db.server";
 import {authenticate} from "../shopify.server";
 import {boundary} from "@shopify/shopify-app-react-router/server";
 import {AsyncCheckButton} from "../components/AsyncCheckButton";
+import {ShipByAnalytics} from "../components/ShipByAnalytics";
+import {getShipBySummary} from "../services/ship-by-analytics.server";
 
 export const loader = async ({request}: LoaderFunctionArgs) => {
   const {session} = await authenticate.admin(request);
@@ -27,17 +29,19 @@ export const loader = async ({request}: LoaderFunctionArgs) => {
   const ruleCount = await prisma.rule.count({
     where: {shopId: session.shop},
   });
+  const shipBySummary = await getShipBySummary({shopId: session.shop});
 
   return {
     defaultLeadDays: setting?.defaultLeadDays ?? null,
     deliverySource: setting?.deliverySource ?? null,
     deliveryKey: setting?.deliveryKey ?? null,
     hasRules: ruleCount > 0,
+    shipBySummary,
   };
 };
 
 export default function Index() {
-  const {defaultLeadDays, deliverySource, deliveryKey, hasRules} =
+  const {defaultLeadDays, deliverySource, deliveryKey, hasRules, shipBySummary} =
     useLoaderData<typeof loader>();
   const isLeadDaysReady = defaultLeadDays != null && defaultLeadDays > 0;
   const isDeliveryReady =
@@ -152,8 +156,7 @@ export default function Index() {
                     >
                       {steps.map((step, index) => {
                         const isOpen = openStepId === step.id;
-                        const isDone = false;
-                        // const isDone = step.done;
+                        const isDone = step.done;
                         return (
                           <div key={step.id}>
                             <div
@@ -218,6 +221,7 @@ export default function Index() {
                 </BlockStack>
               </Card>
             ) : null}
+            <ShipByAnalytics summary={shipBySummary} />
           </BlockStack>
         </Layout.Section>
       </Layout>

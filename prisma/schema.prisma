@@ -96,6 +96,19 @@ model ErrorLog {
   @@index([shopId, orderId])
 }
 
+model ShipByRecord {
+  id           String   @id @default(cuid())
+  shopId       String
+  orderId      BigInt
+  shipByDate   DateTime
+  deliveryDate DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([shopId, orderId])
+  @@index([shopId, shipByDate])
+}
+
 model ShopSetting {
   shopId                 String          @id
   deliverySource         DeliverySource?
