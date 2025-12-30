@@ -1,4 +1,4 @@
-import {graphqlWithRetry} from "./admin-client.server";
+import {graphqlWithRetry} from "../../server/admin-client.server";
 import {toISODate} from "./ship-by.server";
 
 export const SHIP_BY_METAFIELD = {

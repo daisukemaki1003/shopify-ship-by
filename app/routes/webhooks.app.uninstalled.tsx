@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import db from "../db.server";
 import { authenticate } from "../shopify.server";
-import { markShopUninstalled } from "../services/shop.server";
+import { markShopUninstalled } from "../features/shop/server/shop.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { shop, session, topic } = await authenticate.webhook(request);

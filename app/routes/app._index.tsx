@@ -16,9 +16,9 @@ import {ChevronDownIcon, ChevronUpIcon, XIcon} from "@shopify/polaris-icons";
 import prisma from "../db.server";
 import {authenticate} from "../shopify.server";
 import {boundary} from "@shopify/shopify-app-react-router/server";
-import {AsyncCheckButton} from "../components/AsyncCheckButton";
-import {ShipByAnalytics} from "../components/ShipByAnalytics";
-import {getShipBySummary} from "../services/ship-by-analytics.server";
+import {AsyncCheckButton} from "../shared/components/AsyncCheckButton";
+import {ShipByAnalytics} from "../features/ship-by/components/ShipByAnalytics";
+import {getShipBySummary} from "../features/ship-by/server/ship-by-analytics.server";
 
 export const loader = async ({request}: LoaderFunctionArgs) => {
   const {session} = await authenticate.admin(request);
@@ -223,6 +223,7 @@ export default function Index() {
             ) : null}
             <ShipByAnalytics summary={shipBySummary} />
           </BlockStack>
+          <div style={{height: "60px"}}></div>
         </Layout.Section>
       </Layout>
     </Page>

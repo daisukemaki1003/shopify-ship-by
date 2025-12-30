@@ -1,11 +1,11 @@
 import type {AdminApiContext} from "@shopify/shopify-app-react-router/server";
 
-import prisma from "../db.server";
-import {getShippingRates, type ShippingRateEntry} from "./shipping-rates.server";
+import prisma from "../../db.server";
+import {getShippingRates, type ShippingRateEntry} from "../../shipping/server/shipping-rates.server";
 import {parseTargetIds, collectUniqueProductIds} from "../utils/rules";
 import {toFallbackProduct, FALLBACK_PRODUCT_TITLE} from "../utils/products";
 import type {ProductRule, ProductRuleWithProducts, ProductSummary} from "../utils/rule-types";
-import {parsePositiveInt} from "../utils/validation";
+import {parsePositiveInt} from "../../shared/utils/validation";
 import {RuleTargetType} from "@prisma/client";
 import {toZoneKey} from "../utils/shipping-zones";
 

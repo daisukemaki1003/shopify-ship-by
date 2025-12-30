@@ -7,8 +7,8 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import { DeliveryMethod } from "@shopify/shopify-api";
 import prisma from "./db.server";
-import { upsertShopFromSession } from "./services/shop.server";
-import { ensureShipByMetafieldDefinition } from "./services/ship-by-metafield.server";
+import { upsertShopFromSession } from "./features/shop/server/shop.server";
+import { ensureShipByMetafieldDefinition } from "./features/ship-by/server/ship-by-metafield.server";
 
 const defaultScopes = [
   "read_orders",

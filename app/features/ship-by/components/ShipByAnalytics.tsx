@@ -1,5 +1,5 @@
 import { BlockStack, Card, InlineStack, Text } from "@shopify/polaris";
-import type { ShipBySummary } from "../services/ship-by-analytics.server";
+import type { ShipBySummary } from "../server/ship-by-analytics.server";
 
 const TREND_LINE_COLOR = "#7fc9ff";
 const TREND_GRAPH_WIDTH = 110;

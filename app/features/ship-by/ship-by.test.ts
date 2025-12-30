@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { calculateShipBy, toISODate } from "./ship-by.server.js";
+import { calculateShipBy, toISODate } from "./server/ship-by.server.js";
 
 const baseSetting = {
   deliverySource: "metafield" as const,

@@ -19,23 +19,23 @@ import {
   persistZoneRulePayload,
   type ZoneRulePayload,
   type ZoneRuleDetailData,
-} from "../services/rules.server";
-import {DEFAULT_PRODUCT_DAYS} from "../utils/rules";
+} from "../features/rules/server/rules.server";
+import {DEFAULT_PRODUCT_DAYS} from "../features/rules/utils/rules";
 import {
   selectionToProductSummary,
   toFallbackProduct,
-} from "../utils/products";
-import {parsePositiveInt} from "../utils/validation";
+} from "../features/rules/utils/products";
+import {parsePositiveInt} from "../shared/utils/validation";
 import type {
   ProductRule,
   ProductRuleWithProducts,
   ProductSummary,
-} from "../utils/rule-types";
-import {ProductPreviewPills} from "app/components/ProductPreviewPills";
-import {CriticalBanner} from "../components/CriticalBanner";
-import {SettingsRequiredBanner} from "../components/SettingsRequiredBanner";
-import {SuccessToast} from "../components/SuccessToast";
-import {toZoneLabel} from "../utils/shipping-zones";
+} from "../features/rules/utils/rule-types";
+import {ProductPreviewPills} from "../features/rules/components/ProductPreviewPills";
+import {CriticalBanner} from "../shared/components/CriticalBanner";
+import {SettingsRequiredBanner} from "../shared/components/SettingsRequiredBanner";
+import {SuccessToast} from "../shared/components/SuccessToast";
+import {toZoneLabel} from "../features/rules/utils/shipping-zones";
 
 // 画面描画に必要なデータセット（flashMessageを付与）
 type LoaderData = ZoneRuleDetailData & {

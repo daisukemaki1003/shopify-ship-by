@@ -17,12 +17,12 @@ import {
 
 import prisma from "../db.server";
 import {authenticate} from "../shopify.server";
-import {getShippingRates} from "../services/shipping-rates.server";
-import {toZoneKey, toZoneLabel} from "../utils/shipping-zones";
+import {getShippingRates} from "../features/shipping/server/shipping-rates.server";
+import {toZoneKey, toZoneLabel} from "../features/rules/utils/shipping-zones";
 import {BulkAction} from "@shopify/polaris/build/ts/src/components/BulkActions";
-import {CriticalBanner} from "../components/CriticalBanner";
-import {SettingsRequiredBanner} from "../components/SettingsRequiredBanner";
-import {SuccessToast} from "../components/SuccessToast";
+import {CriticalBanner} from "../shared/components/CriticalBanner";
+import {SettingsRequiredBanner} from "../shared/components/SettingsRequiredBanner";
+import {SuccessToast} from "../shared/components/SuccessToast";
 
 type ZoneRuleSummary = {
   zoneKey: string;

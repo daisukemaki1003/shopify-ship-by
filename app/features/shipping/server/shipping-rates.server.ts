@@ -1,6 +1,6 @@
-import prisma from "../db.server";
-import { apiVersion } from "../shopify.server";
-import { getAdminClient } from "./admin-client.server";
+import prisma from "../../db.server";
+import { apiVersion } from "../../shopify.server";
+import { getAdminClient } from "../../server/admin-client.server";
 
 type RawShippingRate = {
   code?: string | null;

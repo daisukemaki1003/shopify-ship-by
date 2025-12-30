@@ -17,9 +17,9 @@ import {
 
 import prisma from "../db.server";
 import {authenticate} from "../shopify.server";
-import {parsePositiveInt} from "../utils/validation";
-import {CriticalBanner} from "../components/CriticalBanner";
-import {SuccessToast} from "../components/SuccessToast";
+import {parsePositiveInt} from "../shared/utils/validation";
+import {CriticalBanner} from "../shared/components/CriticalBanner";
+import {SuccessToast} from "../shared/components/SuccessToast";
 
 type LoaderData = {
   defaultLeadDays: number | null;

@@ -1,12 +1,8 @@
-# データベース構造（SQLite / Prisma）
+# データモデル（SQLite / Prisma）
 
-現行スキーマの要約です。「何のデータか」が分かるように用途と例を併記しています。正確な型は `prisma/schema.prisma` を参照してください。
+現行スキーマの要約です。正確な型は `prisma/schema.prisma` を参照してください。
 
-### 型のメモ
-- String / Int / BigInt / Boolean / DateTime / Json（SQLite では TEXT/BLOB にマッピング）
-- timestamps = `createdAt @default(now())` / `updatedAt @updatedAt`
-
-### Enum
+## Enum
 - `RuleTargetType`: `product` | `all`
 - `DeliverySource`: `metafield` | `attributes`
 
@@ -30,13 +26,13 @@
 ---
 
 ## Shop（店舗メタ）
-目的: 店舗自体のメタデータ・インストール状態を保存。
+目的: 店舗メタデータ・インストール状態を保存。
 
 | カラム | 型 | 説明 |
 | --- | --- | --- |
-| id | String (PK) | 店舗ID（shopドメインと同一を想定） |
-| shopDomain | String? (UNIQUE) | ドメイン（例: `dev-shop.myshopify.com`） |
-| accessToken | String? | Admin API アクセストークン（最新） |
+| id | String (PK) | 店舗ID（shopドメインと同一） |
+| shopDomain | String? (UNIQUE) | ドメイン |
+| accessToken | String? | Admin API アクセストークン |
 | scope | String? | インストール時スコープ |
 | installedAt / uninstalledAt | DateTime? | インストール／アンインストール日時 |
 | createdAt / updatedAt | DateTime | timestamps |
@@ -46,7 +42,7 @@
 ---
 
 ## ShopSetting（店舗設定）
-目的: お届け希望日の取得方法や保存先設定、Shipping Rate キャッシュ（ON/OFF含む）。
+目的: お届け希望日の取得方法、出荷日数の基準、保存先、Shipping Rate キャッシュ。
 
 | カラム | 型 | 説明 |
 | --- | --- | --- |
@@ -54,35 +50,32 @@
 | deliverySource | DeliverySource? | `metafield` or `attributes` |
 | deliveryKey | String? | 取得キー（例: `shipping.requested_date`） |
 | deliveryFormat | String? | 日付パースフォーマット（例: `YYYY-MM-DD`） |
-| saveTag / saveMetafield | Boolean | タグ/メタフィールドへの保存ON/OFF（メタフィールド保存は出荷日保存で使用） |
-| saveTagFormat | String? | 保存フォーマット（例: `ship-by-{YYYY}-{MM}-{DD}`） |
+| defaultLeadDays | Int? | 全体設定の出荷リードタイム |
+| saveTag | Boolean | タグ保存 ON/OFF |
+| saveTagFormat | String? | タグ保存フォーマット |
+| saveNote / saveNoteFormat | Boolean / String? | 現状 UI では未使用（スキーマに残置） |
+| saveMetafield | Boolean | メタフィールド保存 ON/OFF（UI からは常に true） |
 | language | String? | UI言語 |
-| shippingRates | Json | Shipping Rate キャッシュ（`id/handle/title/zoneName/enabled` の配列） |
+| shippingRates | Json | Shipping Rate キャッシュ（`shippingRateId/handle/title/zoneName` の配列） |
 | createdAt / updatedAt | DateTime | timestamps |
 
 インデックス: なし（PK のみ）
 
-※ メモ保存（saveNote/saveNoteFormat）は廃止済みのため、設定画面や処理からは利用しません。
-
 ---
 
 ## Rule（出荷ルール）
-目的: 出荷日数を決めるルール（商品/全商品）。配送ケース（ShippingRate）との紐付けは中間テーブルで管理する。
+目的: 出荷日数を決めるルール（商品/全商品）。
 
 | カラム | 型 | 説明 |
 | --- | --- | --- |
 | id | String (PK, cuid) | ルールID |
 | shopId | String (idx) | 店舗ID |
 | targetType | RuleTargetType | `product` / `all` |
-| targetId | String? | productId 配列を文字列化（全商品は null）※将来的に `String[]` などへ正規化検討 |
+| targetId | String? | `product` の場合は商品ID配列の JSON 文字列 |
 | days | Int | 出荷日数（到着日の何日前に発送するか） |
 | createdAt / updatedAt | DateTime | timestamps |
 
 インデックス: `shopId`
-
-**構造上のポイント**
-- 配送ケースとの関連は `RuleShippingRate` 中間テーブルで表現（1 Rule : N ShippingRate）。
-- ルールの適用範囲（商品/全商品）は `targetType` と `targetId` で判定。商品IDの正規化は今後の改善余地。
 
 ---
 
@@ -95,20 +88,15 @@
 | shopId | String (idx) | 店舗ID |
 | ruleId | String | Rule への外部キー |
 | shippingRateId | String | ShippingRate の business ID |
-| shippingRateShopId | String | ShippingRate の shopId（複合FK用、通常は `shopId` と同一） |
+| shippingRateShopId | String | ShippingRate の shopId（複合FK用） |
 | createdAt / updatedAt | DateTime | timestamps |
 
-インデックス: `shopId`, `ruleId`, `shippingRateId`, `shopId + ruleId + shippingRateId (unique)` を想定
-
-**運用イメージ**
-- UI: 「配送エリア詳細」画面でルールを編集 → サーバーは `Rule` を作成/更新し、その配送エリアに属する配送ケースすべてに対して `RuleShippingRate` を作成（複数件）。
-- 配送エリアの識別は DB に別テーブルで保持せず、`ShippingRate.zoneName` をキーとして UI/サーバーでグルーピングする（空の場合は不明扱い）。
-- ある配送エリアでルールを削除する際は、その配送エリア配下の配送ケースに対する `RuleShippingRate` のみを削除し、他の配送ケースに紐づいていない `Rule` だけを削除する。
+インデックス: `shopId`, `ruleId`, `shippingRateId`, `shopId + ruleId + shippingRateId (unique)`
 
 ---
 
 ## ShippingRate（配送ケースキャッシュ）
-目的: `read_shipping` で取得した配送ケースを保存し、ルール作成で選択できるようにする（配送エリア別 UI のグルーピングにも利用）。
+目的: `read_shipping` で取得した配送ケースを保存し、ルール作成で使用する。
 
 | カラム | 型 | 説明 |
 | --- | --- | --- |
@@ -139,6 +127,22 @@
 
 ---
 
+## ShipByRecord（出荷日記録）
+目的: 出荷日計算結果を保存し、分析に利用する。
+
+| カラム | 型 | 説明 |
+| --- | --- | --- |
+| id | String (PK, cuid) | レコードID |
+| shopId | String (idx) | 店舗ID |
+| orderId | BigInt (unique) | 注文ID |
+| shipByDate | DateTime | 出荷期限日 |
+| deliveryDate | DateTime? | お届け希望日 |
+| createdAt / updatedAt | DateTime | timestamps |
+
+インデックス: `shopId + orderId (unique)`, `shopId + shipByDate`
+
+---
+
 ## ErrorLog（エラー記録）
 目的: ship-by 計算や保存に失敗した際の記録。
 
@@ -154,3 +158,4 @@
 | createdAt / updatedAt | DateTime | timestamps |
 
 インデックス: `shopId`, `shopId + orderId`
+
