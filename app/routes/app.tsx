@@ -5,14 +5,13 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import type React from "react";
 import { useEffect, forwardRef } from "react";
 import { AppProvider } from "@shopify/polaris";
+import type { LinkLikeComponent, LinkLikeComponentProps } from "@shopify/polaris/build/ts/src/utilities/link";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import { NavMenu } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
 
-type PolarisLinkProps = React.HTMLProps<HTMLAnchorElement> & { url: string };
-
-const PolarisLink = forwardRef<HTMLAnchorElement, PolarisLinkProps>(function PolarisLink(
+const PolarisLink = forwardRef<HTMLAnchorElement, LinkLikeComponentProps>(function PolarisLink(
   { url, onClick, target, children, ...rest },
   ref,
 ) {
@@ -88,7 +87,7 @@ export default function App() {
   return (
     <>
       <AppBridgeScript apiKey={apiKey} />
-      <AppProvider i18n={enTranslations} linkComponent={PolarisLink as React.ComponentType<PolarisLinkProps>}>
+      <AppProvider i18n={enTranslations} linkComponent={PolarisLink as LinkLikeComponent}>
         <NavMenu>
           <a href="/app">Home</a>
           <a href="/app/additional">Additional page</a>

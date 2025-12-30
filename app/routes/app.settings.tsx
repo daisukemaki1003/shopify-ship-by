@@ -1,5 +1,6 @@
 import {useEffect, useMemo, useState} from "react";
 import type {ActionFunctionArgs, LoaderFunctionArgs, ShouldRevalidateFunction} from "react-router";
+import type {DeliverySource} from "@prisma/client";
 import {Form, redirect, useActionData, useLoaderData, useLocation} from "react-router";
 import {
   Autocomplete,
@@ -219,7 +220,8 @@ export const action = async ({request}: ActionFunctionArgs) => {
   if (!parsedDays) {
     fieldErrors.defaultLeadDays = "全体設定の出荷リードタイムは1以上の整数で入力してください";
   }
-  if (rawSource !== "metafield" && rawSource !== "attributes") {
+  const isValidSource = rawSource === "metafield" || rawSource === "attributes";
+  if (!isValidSource) {
     fieldErrors.deliverySource = "取得方法を選択してください";
   }
   if (!rawKey) {
@@ -234,12 +236,14 @@ export const action = async ({request}: ActionFunctionArgs) => {
     } satisfies ActionData;
   }
 
+  const deliverySource = rawSource as DeliverySource;
+
   await prisma.shopSetting.upsert({
     where: {shopId: session.shop},
     create: {
       shopId: session.shop,
       defaultLeadDays: parsedDays,
-      deliverySource: rawSource,
+      deliverySource,
       deliveryKey: rawKey,
       deliveryFormat: rawFormat || null,
       saveTag,
@@ -248,7 +252,7 @@ export const action = async ({request}: ActionFunctionArgs) => {
     },
     update: {
       defaultLeadDays: parsedDays,
-      deliverySource: rawSource,
+      deliverySource,
       deliveryKey: rawKey,
       deliveryFormat: rawFormat || null,
       saveTag,

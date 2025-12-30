@@ -84,16 +84,16 @@ const formatWithTokens = (template: string | null | undefined, date: Date) => {
 
 const coerceOrder = (payload: unknown): ShopifyOrderLike => {
   const obj = (payload ?? {}) as Record<string, unknown>;
-  const attributes: ShopifyOrderLike["attributes"] = [];
+  const attributes: NonNullable<ShopifyOrderLike["attributes"]> = [];
 
   if (Array.isArray(obj.attributes)) {
-    attributes.push(...(obj.attributes as ShopifyOrderLike["attributes"]));
+    attributes.push(...(obj.attributes as NonNullable<ShopifyOrderLike["attributes"]>));
   }
   if (Array.isArray(obj.note_attributes)) {
-    attributes.push(...(obj.note_attributes as ShopifyOrderLike["attributes"]));
+    attributes.push(...(obj.note_attributes as NonNullable<ShopifyOrderLike["attributes"]>));
   }
   if (Array.isArray(obj.noteAttributes)) {
-    attributes.push(...(obj.noteAttributes as ShopifyOrderLike["attributes"]));
+    attributes.push(...(obj.noteAttributes as NonNullable<ShopifyOrderLike["attributes"]>));
   }
 
   return {

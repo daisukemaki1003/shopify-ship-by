@@ -23,10 +23,12 @@ type ImageEdge = {
   node?: ImageNode | null;
 };
 
-type Images = {
-  nodes?: ImageNode[] | null;
-  edges?: ImageEdge[] | null;
-};
+type Images =
+  | ImageNode[]
+  | {
+      nodes?: ImageNode[] | null;
+      edges?: ImageEdge[] | null;
+    };
 
 type ProductSelection = {
   id?: unknown;
@@ -54,6 +56,10 @@ export const toFallbackProduct = (id: string): ProductSummary => ({
 
 // 商品ピッカーのレスポンスから最初に見つかった画像URLを取り出す
 export const pickFirstImageUrl = (item: ProductSelection | null | undefined): string | null => {
+  const imagesValue = item?.images ?? null;
+  const imageArray = Array.isArray(imagesValue) ? imagesValue : null;
+  const imageNodes = !Array.isArray(imagesValue) ? imagesValue?.nodes ?? null : null;
+  const imageEdges = !Array.isArray(imagesValue) ? imagesValue?.edges ?? null : null;
   const candidates = [
     item?.featuredMedia?.preview?.image?.url,
     item?.featuredMedia?.preview?.image?.src,
@@ -82,18 +88,18 @@ export const pickFirstImageUrl = (item: ProductSelection | null | undefined): st
     item?.image?.src,
     item?.image?.originalSrc,
     item?.image?.transformedSrc,
-    item?.images?.[0]?.url,
-    item?.images?.[0]?.src,
-    item?.images?.[0]?.originalSrc,
-    item?.images?.[0]?.transformedSrc,
-    item?.images?.nodes?.[0]?.url,
-    item?.images?.nodes?.[0]?.src,
-    item?.images?.nodes?.[0]?.originalSrc,
-    item?.images?.nodes?.[0]?.transformedSrc,
-    item?.images?.edges?.[0]?.node?.url,
-    item?.images?.edges?.[0]?.node?.src,
-    item?.images?.edges?.[0]?.node?.originalSrc,
-    item?.images?.edges?.[0]?.node?.transformedSrc,
+    imageArray?.[0]?.url,
+    imageArray?.[0]?.src,
+    imageArray?.[0]?.originalSrc,
+    imageArray?.[0]?.transformedSrc,
+    imageNodes?.[0]?.url,
+    imageNodes?.[0]?.src,
+    imageNodes?.[0]?.originalSrc,
+    imageNodes?.[0]?.transformedSrc,
+    imageEdges?.[0]?.node?.url,
+    imageEdges?.[0]?.node?.src,
+    imageEdges?.[0]?.node?.originalSrc,
+    imageEdges?.[0]?.node?.transformedSrc,
     item?.variants?.edges?.[0]?.node?.image?.url,
     item?.variants?.edges?.[0]?.node?.image?.src,
     item?.variants?.edges?.[0]?.node?.image?.originalSrc,
