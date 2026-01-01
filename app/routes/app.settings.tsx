@@ -218,7 +218,7 @@ export const action = async ({request}: ActionFunctionArgs) => {
 
   const fieldErrors: NonNullable<Exclude<ActionData, {ok: true}>>["fieldErrors"] = {};
   if (!parsedDays) {
-    fieldErrors.defaultLeadDays = "全体設定の出荷リードタイムは1以上の整数で入力してください";
+    fieldErrors.defaultLeadDays = "設定の出荷リードタイムは1以上の整数で入力してください";
   }
   const isValidSource = rawSource === "metafield" || rawSource === "attributes";
   if (!isValidSource) {
@@ -501,7 +501,7 @@ export default function SettingsPage() {
   return (
     <Form method="post">
       <Page
-        title="全体設定"
+        title="設定"
         primaryAction={
           <Button submit variant="primary" disabled={!isFormReady}>
             保存

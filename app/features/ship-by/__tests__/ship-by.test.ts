@@ -315,7 +315,7 @@ test("配送ケース不一致ならno_ruleエラー", () => {
   assert.equal(result.error, "no_rule");
 });
 
-test("ルールがない場合は全体設定の日数を採用する", () => {
+test("ルールがない場合は設定の日数を採用する", () => {
   const order = {
     id: 5,
     shipping_lines: [{ code: "yamato_cool", id: "sr_yamato_cool" }],

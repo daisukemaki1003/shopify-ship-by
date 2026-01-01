@@ -50,7 +50,7 @@
 | deliverySource | DeliverySource? | `metafield` or `attributes` |
 | deliveryKey | String? | 取得キー（例: `shipping.requested_date`） |
 | deliveryFormat | String? | 日付パースフォーマット（例: `YYYY-MM-DD`） |
-| defaultLeadDays | Int? | 全体設定の出荷リードタイム |
+| defaultLeadDays | Int? | 設定の出荷リードタイム |
 | saveTag | Boolean | タグ保存 ON/OFF |
 | saveTagFormat | String? | タグ保存フォーマット |
 | saveNote / saveNoteFormat | Boolean / String? | 現状 UI では未使用（スキーマに残置） |

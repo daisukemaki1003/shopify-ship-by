@@ -50,10 +50,10 @@ export default function Index() {
     {
       id: "lead-days",
       title: "出荷リードタイムを設定",
-      description: "全体設定で基準となる日数を入力します。",
+      description: "設定で基準となる日数を入力します。",
       detail:
         "配送エリアにルールがない場合に使われる日数です。まずは全体の基準値を決めます。",
-      actionLabel: "全体設定へ",
+      actionLabel: "設定へ",
       url: "/app/settings",
       done: isLeadDaysReady,
     },

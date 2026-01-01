@@ -141,8 +141,8 @@ export const action = async ({request}: ActionFunctionArgs) => {
   });
   if (!setting?.defaultLeadDays || setting.defaultLeadDays <= 0) {
     const redirectUrl = host
-      ? `/app/rules?host=${encodeURIComponent(host)}&message=${encodeURIComponent("全体設定が未完了のため操作できません")}&tone=critical`
-      : `/app/rules?message=${encodeURIComponent("全体設定が未完了のため操作できません")}&tone=critical`;
+      ? `/app/rules?host=${encodeURIComponent(host)}&message=${encodeURIComponent("設定が未完了のため操作できません")}&tone=critical`
+      : `/app/rules?message=${encodeURIComponent("設定が未完了のため操作できません")}&tone=critical`;
     return redirect(redirectUrl);
   }
   const form = await request.formData();
@@ -384,7 +384,7 @@ export default function RulesIndexPage() {
                   summary.baseDays != null
                     ? `${summary.baseDays} 日`
                     : defaultLeadDays != null
-                      ? `全体設定 (${defaultLeadDays} 日)`
+                      ? `設定 (${defaultLeadDays} 日)`
                       : "未設定";
                 const individualText = `${summary.individualCount} 件`;
                 const rateCountText = `${summary.shippingRateCount} 件`;

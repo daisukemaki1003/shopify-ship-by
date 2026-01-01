@@ -7,8 +7,8 @@ type SettingsRequiredBannerProps = {
 };
 
 export function SettingsRequiredBanner({
-  message = "全体設定が未完了のため操作できません。",
-  actionLabel = "全体設定へ",
+  message = "設定が未完了のため操作できません。",
+  actionLabel = "設定へ",
   actionUrl = "/app/settings",
 }: SettingsRequiredBannerProps) {
   return (

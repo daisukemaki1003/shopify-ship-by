@@ -93,7 +93,7 @@ export const action = async ({request, params}: ActionFunctionArgs) => {
     select: {defaultLeadDays: true},
   });
   if (!setting?.defaultLeadDays || setting.defaultLeadDays <= 0) {
-    return {ok: false, message: "全体設定が未完了のため保存できません"} satisfies ActionData;
+    return {ok: false, message: "設定が未完了のため保存できません"} satisfies ActionData;
   }
   const zoneKey = params.zoneKey ?? "";
   const form = await request.formData();
@@ -319,7 +319,7 @@ export default function RuleDetailPage() {
           <SuccessToast message={successMessage} nonce={location.key} />
           <CriticalBanner message={errorMessage} />
           {!isSettingsReady ? (
-            <SettingsRequiredBanner message="全体設定が未完了のため保存できません。" />
+            <SettingsRequiredBanner message="設定が未完了のため保存できません。" />
           ) : null}
 
           <Card>
@@ -328,7 +328,7 @@ export default function RuleDetailPage() {
                 基本設定
               </Text>
               <Text as="p" tone="subdued">
-                全体設定: {defaultLeadDays != null ? `${defaultLeadDays}日` : "未設定"}（未入力の場合に適用）
+                設定: {defaultLeadDays != null ? `${defaultLeadDays}日` : "未設定"}（未入力の場合に適用）
               </Text>
               <TextField
                 label="出荷リードタイム（日）"
@@ -338,7 +338,7 @@ export default function RuleDetailPage() {
                 value={baseDays}
                 onChange={setBaseDays}
                 suffix="日"
-                helpText="未入力の場合は全体設定が適用されます。"
+                helpText="未入力の場合は設定が適用されます。"
                 disabled={!isSettingsReady}
               />
             </BlockStack>
