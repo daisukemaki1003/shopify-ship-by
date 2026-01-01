@@ -1,7 +1,7 @@
-# 出荷日計算（ship-by）
+# 出荷期限の計算
 
 ## 目的
-注文データから出荷期限日（ship-by date）を算出し、メタフィールド・タグ・分析用レコードに保存する。
+注文データから出荷期限を算出し、メタフィールド・タグ・分析用レコードに保存する。
 
 ## 計算フロー
 1. お届け希望日の取得
@@ -10,19 +10,19 @@
 4. 休業日の補正（前営業日に繰り下げ）
 
 ### 1. お届け希望日の取得
-- `ShopSetting.deliverySource` が `metafield` の場合は `namespace.key` を参照。
-- `attributes` の場合は注文属性（attributes）を参照。
-- フォーマットは `deliveryFormat` を使用し、未設定の場合は `YYYY-MM-DD`。
+- `ShopSetting.deliverySource` が `metafield`（注文メタフィールド）の場合は `namespace.key` を参照。
+- `attributes`（注文属性）の場合は注文属性を参照。
+- 書式は `deliveryFormat` を使用し、未設定の場合は `YYYY-MM-DD`。
 
 エラー:
 - `missing_setting` : 取得元/キーが未設定
 - `delivery_value_not_found` : 注文に値が見つからない
-- `invalid_delivery_format` : フォーマット不一致
+- `invalid_delivery_format` : 書式不一致
 
 ### 2. 配送ケースの特定
 - `ShopSetting.shippingRates` に保存された配送ケース一覧から一致を探す。
 - 参照候補は `shipping_lines` の `shipping_rate_handle / code / delivery_category / title / id` と
-  `metafields / attributes` の文字列値。
+  注文メタフィールド / 注文属性の文字列値。
 - 正規化は `trim + lower + 空白/ハイフン -> _`。
 
 エラー:
@@ -56,5 +56,4 @@
   - `ErrorLog` に記録（`reason` と `rawData`）
 
 ## 付随処理
-- `afterAuth` フックで ship-by メタフィールド定義を作成。
-
+- `afterAuth` フックで出荷期限メタフィールドの定義を作成。

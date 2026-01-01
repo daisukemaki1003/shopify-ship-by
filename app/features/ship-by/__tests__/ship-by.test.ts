@@ -245,7 +245,7 @@ test("週次と単発の休業日を考慮して前営業日に繰り下げる",
   assert.equal(toISODate(result.value.shipBy), "2025-05-02");
 });
 
-test("お届け日フォーマット不一致ならエラーを返す", () => {
+test("お届け日の書式が合わないとエラーを返す", () => {
   const order = {
     id: 3,
     shipping_lines: [{ code: "yamato_cool", id: "sr_yamato_cool" }],

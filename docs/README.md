@@ -8,16 +8,16 @@
 - `docs/features/rules.md` : 出荷ルールのドメイン仕様と保存ロジック
 - `docs/ui/rules-index.md` : 出荷ルール一覧 UI
 - `docs/ui/rules-detail.md` : 出荷ルール詳細 UI
-- `docs/features/ship-by.md` : 出荷日計算・保存・エラーハンドリング
+- `docs/features/ship-by.md` : 出荷期限の計算・保存・エラーハンドリング
 - `docs/features/shipping-rates.md` : 配送ケース同期とキャッシュ
 - `docs/features/webhooks.md` : Webhook ハンドリング
 - `docs/release-checklist.md` : リリース前チェックリスト
 
 ## アプリ全体の流れ（概要）
-- インストール後: Webhook 登録と ship-by メタフィールド定義を作成。
-- 設定: 基準日数とお届け希望日取得方法を指定。
+- インストール後: Webhook 登録と出荷期限メタフィールドの定義を作成。
+- 設定: 基準日数とお届け希望日の取得元を指定。
 - ルール: 配送エリア別に基本設定・商品別設定を作成。
-- 注文作成時: お届け希望日・配送ケース・ルールから ship-by を計算し、メタフィールドとタグに保存。失敗は ErrorLog に記録。
+- 注文作成時: お届け希望日・配送ケース・ルールから出荷期限を計算し、メタフィールドとタグに保存。失敗は ErrorLog に記録。
 - 分析: ShipByRecord を集計してダッシュボードに表示。
 
 ## コード構成（実装の現状）

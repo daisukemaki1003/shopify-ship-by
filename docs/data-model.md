@@ -4,7 +4,7 @@
 
 ## Enum
 - `RuleTargetType`: `product` | `all`
-- `DeliverySource`: `metafield` | `attributes`
+- `DeliverySource`: `metafield`（注文メタフィールド） | `attributes`（注文属性）
 
 ---
 
@@ -47,12 +47,12 @@
 | カラム | 型 | 説明 |
 | --- | --- | --- |
 | shopId | String (PK) | 店舗ID |
-| deliverySource | DeliverySource? | `metafield` or `attributes` |
+| deliverySource | DeliverySource? | `metafield`（注文メタフィールド） or `attributes`（注文属性） |
 | deliveryKey | String? | 取得キー（例: `shipping.requested_date`） |
-| deliveryFormat | String? | 日付の読み取りフォーマット（例: `YYYY-MM-DD`） |
+| deliveryFormat | String? | 日付の書式（例: `YYYY-MM-DD`） |
 | defaultLeadDays | Int? | 設定の出荷日数 |
 | saveTag | Boolean | タグ保存 ON/OFF |
-| saveTagFormat | String? | タグ保存フォーマット |
+| saveTagFormat | String? | タグ保存の書式 |
 | saveNote / saveNoteFormat | Boolean / String? | 現状 UI では未使用（スキーマに残置） |
 | saveMetafield | Boolean | メタフィールド保存 ON/OFF（UI からは常に true） |
 | language | String? | UI言語 |
@@ -135,7 +135,7 @@
 | id | String (PK, cuid) | レコードID |
 | shopId | String (idx) | 店舗ID |
 | orderId | BigInt (unique) | 注文ID |
-| shipByDate | DateTime | 出荷期限日 |
+| shipByDate | DateTime | 出荷期限 |
 | deliveryDate | DateTime? | お届け希望日 |
 | createdAt / updatedAt | DateTime | timestamps |
 
@@ -144,7 +144,7 @@
 ---
 
 ## ErrorLog（エラー記録）
-目的: ship-by 計算や保存に失敗した際の記録。
+目的: 出荷期限の計算や保存に失敗した際の記録。
 
 | カラム | 型 | 説明 |
 | --- | --- | --- |

@@ -48,9 +48,9 @@ type ActionData =
 const DEFAULT_DATE_FORMAT = "YYYY-MM-DD";
 const FORMAT_PRESET_CUSTOM = "__custom__";
 const FORMAT_PRESETS = [
-  {label: "YYYY/MM/DD (ddd) 例: 2025/12/24 (水)", value: "YYYY/MM/DD (ddd)"},
-  {label: "YYYY/MM/DD", value: "YYYY/MM/DD"},
   {label: "YYYY-MM-DD（既定）", value: "YYYY-MM-DD"},
+  {label: "YYYY/MM/DD", value: "YYYY/MM/DD"},
+  {label: "YYYY/MM/DD (ddd)", value: "YYYY/MM/DD (ddd)"},
   {label: "YYYY年MM月DD日", value: "YYYY年MM月DD日"},
 ] as const;
 const WEEKDAY_TOKEN = "(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat|日|月|火|水|木|金|土)";
@@ -105,7 +105,7 @@ const toISODate = (date: Date) => date.toISOString().slice(0, 10);
 
 const resolvePresetValue = (value: string) => {
   const trimmed = value.trim();
-  if (!trimmed) return FORMAT_PRESET_CUSTOM;
+  if (!trimmed) return DEFAULT_DATE_FORMAT;
   return FORMAT_PRESETS.some((preset) => preset.value === trimmed)
     ? trimmed
     : FORMAT_PRESET_CUSTOM;
@@ -541,7 +541,7 @@ export default function SettingsPage() {
                 お届け希望日の取得元（必須）
               </Text>
               <Text as="p" tone="subdued">
-                取得元とキー、日付の形式を指定します。
+                取得元とキー、日付の書式を指定します。
               </Text>
               {fieldErrors?.deliverySource || fieldErrors?.deliveryKey ? (
                 <Text as="p" tone="critical">
@@ -551,7 +551,7 @@ export default function SettingsPage() {
               <BlockStack gap="300">
                 <BlockStack gap="200">
                   <RadioButton
-                    label="メタフィールド"
+                    label="注文メタフィールド"
                     name="deliverySource"
                     value="metafield"
                     checked={source === "metafield"}
@@ -579,13 +579,13 @@ export default function SettingsPage() {
                           onSelect={handleCandidateSelect}
                           emptyState={
                             <Text as="p" tone="subdued">
-                              候補がありません。注文メタフィールド定義を追加してください。
+                              候補がありません。注文メタフィールドの定義を追加してください。
                             </Text>
                           }
                         />
                         {missingMetafieldCandidate ? (
                           <Text as="p" tone="critical">
-                            現在の設定「{missingMetafieldCandidate.key}」は注文メタフィールド定義にありません。
+                            現在の設定「{missingMetafieldCandidate.key}」は注文メタフィールドの定義にありません。
                           </Text>
                         ) : null}
                         {fieldErrors?.deliveryKey ? (
@@ -594,7 +594,7 @@ export default function SettingsPage() {
                           </Text>
                         ) : null}
                         <Text as="p" tone="subdued">
-                          注文メタフィールド定義から候補を表示しています。
+                          注文メタフィールドの定義から候補を表示しています。
                         </Text>
                       </BlockStack>
                     </Box>
@@ -602,7 +602,7 @@ export default function SettingsPage() {
                 </BlockStack>
                 <BlockStack gap="200">
                   <RadioButton
-                    label="注文属性（attributes）"
+                    label="注文属性"
                     name="deliverySource"
                     value="attributes"
                     checked={source === "attributes"}
@@ -619,7 +619,7 @@ export default function SettingsPage() {
                           value={attributeKey}
                           onChange={handleAttributeKeyChange}
                           placeholder="requested_date"
-                          helpText="注文属性（attributes）に保存されているキー名を入力してください。"
+                          helpText="注文属性に保存されているキー名を入力してください。"
                           error={fieldErrors?.deliveryKey}
                           requiredIndicator
                         />
@@ -632,7 +632,7 @@ export default function SettingsPage() {
               <div></div>
 
               <Select
-                label="日付フォーマット"
+                label="日付の書式"
                 options={[
                   ...FORMAT_PRESETS.map((preset) => ({
                     label: preset.label,
@@ -642,16 +642,16 @@ export default function SettingsPage() {
                 ]}
                 value={formatPresetSelection}
                 onChange={handleFormatPresetChange}
-                helpText="よく使う形式から選べます。"
+                helpText="よく使う書式から選べます。"
               />
               {formatPresetSelection === FORMAT_PRESET_CUSTOM ? (
                 <TextField
-                  label="日付の読み取りフォーマット"
+                  label="日付の書式（手入力）"
                   autoComplete="off"
                   value={format}
                   onChange={setFormat}
                   placeholder={DEFAULT_DATE_FORMAT}
-                  helpText="テンプレートを選ぶと自動入力されます。必要なら変更してください。"
+                  helpText="プリセットを選ぶと自動入力されます。必要なら変更してください。"
                 />
               ) : null}
               <TextField
