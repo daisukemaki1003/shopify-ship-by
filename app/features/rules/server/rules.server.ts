@@ -57,8 +57,14 @@ export const fetchProductSummaries = async (
             ... on Product {
               id
               title
-              featuredImage { url altText }
-              images(first: 1) { nodes { url altText } }
+              featuredMedia { preview { image { url altText } } }
+              media(first: 1) {
+                nodes {
+                  ... on MediaImage {
+                    image { url altText }
+                  }
+                }
+              }
             }
           }
         }
@@ -72,8 +78,16 @@ export const fetchProductSummaries = async (
             __typename?: string;
             id?: string;
             title?: string;
-            featuredImage?: { url?: string | null } | null;
-            images?: { nodes?: Array<{ url?: string | null }> | null } | null;
+            featuredMedia?: {
+              preview?: {
+                image?: { url?: string | null; altText?: string | null } | null;
+              } | null;
+            } | null;
+            media?: {
+              nodes?: Array<{
+                image?: { url?: string | null; altText?: string | null } | null;
+              } | null> | null;
+            } | null;
           }>)
         : [];
 
@@ -81,7 +95,9 @@ export const fetchProductSummaries = async (
         if (!node || node.__typename !== "Product" || !node.id) return;
 
         const primaryImage =
-          node.featuredImage?.url ?? node.images?.nodes?.[0]?.url ?? null;
+          node.featuredMedia?.preview?.image?.url ??
+          node.media?.nodes?.[0]?.image?.url ??
+          null;
 
         map.set(node.id, {
           id: String(node.id),
