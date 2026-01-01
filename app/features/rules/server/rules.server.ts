@@ -1,25 +1,33 @@
-import type {AdminApiContext} from "@shopify/shopify-app-react-router/server";
+import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 
 import prisma from "../../../db.server";
-import {getShippingRates, type ShippingRateEntry} from "../../shipping/server/shipping-rates.server";
-import {parseTargetIds, collectUniqueProductIds} from "../utils/rules";
-import {toFallbackProduct, FALLBACK_PRODUCT_TITLE} from "../utils/products";
-import type {ProductRule, ProductRuleWithProducts, ProductSummary} from "../utils/rule-types";
-import {RuleTargetType} from "@prisma/client";
-import {toZoneKey} from "../utils/shipping-zones";
-import {normalizeZoneRulePayload, type ZoneRulePayload} from "../utils/normalize-zone-rule";
+import { getShippingRates } from "../../shipping/server/shipping-rates.server";
+import type { ShippingRateEntry } from "../../shipping/utils/shipping-rate-normalize";
+import { parseTargetIds, collectUniqueProductIds } from "../utils/rules";
+import { toFallbackProduct, FALLBACK_PRODUCT_TITLE } from "../utils/products";
+import type {
+  ProductRule,
+  ProductRuleWithProducts,
+  ProductSummary,
+} from "../utils/rule-types";
+import { RuleTargetType } from "@prisma/client";
+import { toZoneKey } from "../utils/shipping-zones";
+import {
+  normalizeZoneRulePayload,
+  type ZoneRulePayload,
+} from "../utils/normalize-zone-rule";
 
 // 配送エリアのルール詳細に必要なデータ
 export type ZoneRuleDetailData = {
-  zone: {key: string; name: string | null};
+  zone: { key: string; name: string | null };
   rates: ShippingRateEntry[];
-  base: {id: string; days: number} | null;
+  base: { id: string; days: number } | null;
   productRules: ProductRuleWithProducts[];
   defaultLeadDays: number | null;
 };
 
 // 配列を指定サイズで分割するユーティリティ
-const chunkArray = <T,>(items: T[], size: number): T[][] => {
+const chunkArray = <T>(items: T[], size: number): T[][] => {
   const result: T[][] = [];
   for (let i = 0; i < items.length; i += size) {
     result.push(items.slice(i, i + size));
@@ -55,7 +63,7 @@ export const fetchProductSummaries = async (
           }
         }
         `,
-        {variables: {ids: chunk}},
+        { variables: { ids: chunk } },
       );
 
       const json = await response.json();
@@ -64,8 +72,8 @@ export const fetchProductSummaries = async (
             __typename?: string;
             id?: string;
             title?: string;
-            featuredImage?: {url?: string | null} | null;
-            images?: {nodes?: Array<{url?: string | null}> | null} | null;
+            featuredImage?: { url?: string | null } | null;
+            images?: { nodes?: Array<{ url?: string | null }> | null } | null;
           }>)
         : [];
 
@@ -73,9 +81,7 @@ export const fetchProductSummaries = async (
         if (!node || node.__typename !== "Product" || !node.id) return;
 
         const primaryImage =
-          node.featuredImage?.url ??
-          node.images?.nodes?.[0]?.url ??
-          null;
+          node.featuredImage?.url ?? node.images?.nodes?.[0]?.url ?? null;
 
         map.set(node.id, {
           id: String(node.id),
@@ -97,11 +103,17 @@ const resolveZoneRates = async ({
 }: {
   shopId: string;
   zoneKey: string;
-}): Promise<{zoneKey: string; zoneName: string | null; rates: ShippingRateEntry[]}> => {
+}): Promise<{
+  zoneKey: string;
+  zoneName: string | null;
+  rates: ShippingRateEntry[];
+}> => {
   const rates = await getShippingRates(shopId);
-  const ratesInZone = rates.filter((rate) => toZoneKey(rate.zoneName) === zoneKey);
+  const ratesInZone = rates.filter(
+    (rate) => toZoneKey(rate.zoneName) === zoneKey,
+  );
   if (ratesInZone.length === 0) {
-    throw new Response("Not found", {status: 404});
+    throw new Response("Not found", { status: 404 });
   }
   return {
     zoneKey,
@@ -120,17 +132,17 @@ export const loadZoneRuleDetail = async ({
   zoneKey: string;
   admin: AdminApiContext;
 }): Promise<ZoneRuleDetailData> => {
-  const {zoneName, rates} = await resolveZoneRates({shopId, zoneKey});
+  const { zoneName, rates } = await resolveZoneRates({ shopId, zoneKey });
   const rateIds = rates.map((rate) => rate.shippingRateId);
 
   const ruleLinks = await prisma.ruleShippingRate.findMany({
     where: {
       shopId,
-      shippingRateId: {in: rateIds},
+      shippingRateId: { in: rateIds },
       shippingRateShopId: shopId,
     },
-    include: {rule: true},
-    orderBy: {createdAt: "desc"},
+    include: { rule: true },
+    orderBy: { createdAt: "desc" },
   });
 
   const rulesById = new Map<string, (typeof ruleLinks)[number]["rule"]>();
@@ -142,8 +154,8 @@ export const loadZoneRuleDetail = async ({
   });
   const rules = Array.from(rulesById.values());
   const setting = await prisma.shopSetting.findUnique({
-    where: {shopId},
-    select: {defaultLeadDays: true},
+    where: { shopId },
+    select: { defaultLeadDays: true },
   });
 
   const baseRule = rules
@@ -175,16 +187,16 @@ export const loadZoneRuleDetail = async ({
   );
 
   return {
-    zone: {key: zoneKey, name: zoneName},
+    zone: { key: zoneKey, name: zoneName },
     rates,
-    base: baseRule ? {id: baseRule.id, days: baseRule.days} : null,
+    base: baseRule ? { id: baseRule.id, days: baseRule.days } : null,
     productRules,
     defaultLeadDays: setting?.defaultLeadDays ?? null,
   };
 };
 
-export {normalizeZoneRulePayload};
-export type {ZoneRulePayload};
+export { normalizeZoneRulePayload };
+export type { ZoneRulePayload };
 
 // 検証済みペイロードをDBへ保存する
 export const persistZoneRulePayload = async ({
@@ -200,10 +212,10 @@ export const persistZoneRulePayload = async ({
   baseDays: number | null;
   productRules: ProductRule[];
 }) => {
-  const {rates} = await resolveZoneRates({shopId, zoneKey});
+  const { rates } = await resolveZoneRates({ shopId, zoneKey });
   const rateIds = rates.map((rate) => rate.shippingRateId);
   const linkUniqueWhere = (ruleId: string, shippingRateId: string) => ({
-    shopId_ruleId_shippingRateId: {shopId, ruleId, shippingRateId},
+    shopId_ruleId_shippingRateId: { shopId, ruleId, shippingRateId },
   });
 
   const ensureLinksForAllRates = async (ruleId: string) => {
@@ -225,7 +237,10 @@ export const persistZoneRulePayload = async ({
 
   if (baseDays != null) {
     if (baseId) {
-      await prisma.rule.updateMany({where: {id: baseId, shopId}, data: {days: baseDays}});
+      await prisma.rule.updateMany({
+        where: { id: baseId, shopId },
+        data: { days: baseDays },
+      });
       await ensureLinksForAllRates(baseId);
     } else {
       const created = await prisma.rule.create({
@@ -244,31 +259,33 @@ export const persistZoneRulePayload = async ({
       where: {
         shopId,
         shippingRateShopId: shopId,
-        shippingRateId: {in: rateIds},
+        shippingRateId: { in: rateIds },
         ruleId: baseId,
       },
     });
 
     const remaining = await prisma.ruleShippingRate.findFirst({
-      where: {shopId, ruleId: baseId},
-      select: {ruleId: true},
+      where: { shopId, ruleId: baseId },
+      select: { ruleId: true },
     });
     if (!remaining) {
-      await prisma.rule.deleteMany({where: {shopId, id: baseId}});
+      await prisma.rule.deleteMany({ where: { shopId, id: baseId } });
     }
   }
 
-  const incomingIds = new Set(productRules.map((r) => r.id).filter(Boolean) as string[]);
+  const incomingIds = new Set(
+    productRules.map((r) => r.id).filter(Boolean) as string[],
+  );
 
   // 配送エリアに紐づく削除対象の商品別ルールを洗い出し
   const existingProductRuleLinks = await prisma.ruleShippingRate.findMany({
     where: {
       shopId,
-      shippingRateId: {in: rateIds},
+      shippingRateId: { in: rateIds },
       shippingRateShopId: shopId,
-      rule: {targetType: RuleTargetType.product},
+      rule: { targetType: RuleTargetType.product },
     },
-    select: {ruleId: true},
+    select: { ruleId: true },
   });
 
   const deleteIds = existingProductRuleLinks
@@ -279,25 +296,25 @@ export const persistZoneRulePayload = async ({
     await prisma.ruleShippingRate.deleteMany({
       where: {
         shopId,
-        shippingRateId: {in: rateIds},
+        shippingRateId: { in: rateIds },
         shippingRateShopId: shopId,
-        ruleId: {in: deleteIds},
+        ruleId: { in: deleteIds },
       },
     });
 
     const externalLinks = await prisma.ruleShippingRate.findMany({
       where: {
         shopId,
-        ruleId: {in: deleteIds},
-        shippingRateId: {notIn: rateIds},
+        ruleId: { in: deleteIds },
+        shippingRateId: { notIn: rateIds },
       },
-      select: {ruleId: true},
+      select: { ruleId: true },
     });
     const externalRuleIds = new Set(externalLinks.map((link) => link.ruleId));
     const safeToDelete = deleteIds.filter((id) => !externalRuleIds.has(id));
     if (safeToDelete.length > 0) {
       await prisma.rule.deleteMany({
-        where: {shopId, id: {in: safeToDelete}},
+        where: { shopId, id: { in: safeToDelete } },
       });
     }
   }
@@ -307,7 +324,7 @@ export const persistZoneRulePayload = async ({
     const targetId = JSON.stringify(rule.productIds);
     if (rule.id) {
       await prisma.rule.updateMany({
-        where: {id: rule.id, shopId},
+        where: { id: rule.id, shopId },
         data: {
           targetType: "product",
           targetId,

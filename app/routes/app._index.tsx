@@ -6,7 +6,6 @@ import {
   Button,
   Card,
   Collapsible,
-  Divider,
   InlineStack,
   Layout,
   Page,

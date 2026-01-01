@@ -11,6 +11,7 @@
 - `docs/features/ship-by.md` : 出荷日計算・保存・エラーハンドリング
 - `docs/features/shipping-rates.md` : 配送ケース同期とキャッシュ
 - `docs/features/webhooks.md` : Webhook ハンドリング
+- `docs/release-checklist.md` : リリース前チェックリスト
 
 ## アプリ全体の流れ（概要）
 - インストール後: Webhook 登録と ship-by メタフィールド定義を作成。
@@ -26,4 +27,3 @@
 - `app/shared/` : 共通 UI / 共通ユーティリティ
 - `app/server/` : サーバー向け共通クライアント
 - `prisma/` : スキーマとマイグレーション
-
