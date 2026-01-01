@@ -2,12 +2,11 @@
 
 client_id = "5deb81e90a8882f591ad9b8ef9106bc0"
 name = "ShipBy"
-application_url = "https://example.com"
+application_url = "https://shopify-ship-by-production.up.railway.app"
 embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
-include_config_on_deploy = true
 
 [webhooks]
 api_version = "2026-01"
@@ -29,4 +28,4 @@ api_version = "2026-01"
 scopes = "read_orders,write_orders,read_products,read_shipping"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://shopify-ship-by-production.up.railway.app/api/auth" ]
