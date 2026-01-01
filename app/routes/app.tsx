@@ -46,12 +46,25 @@ const PolarisLink = forwardRef<HTMLAnchorElement, LinkLikeComponentProps>(functi
   );
 });
 
-function AppBridgeScript({ apiKey }: { apiKey: string }) {
+function AppBridgeScript({ apiKey, host }: { apiKey: string; host: string | null }) {
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    const host = new URLSearchParams(location.search).get("host");
+    const urlHost = new URLSearchParams(location.search).get("host");
+    if (urlHost) {
+      window.sessionStorage.setItem("shopify:host", urlHost);
+    } else {
+      const storedHost = window.sessionStorage.getItem("shopify:host");
+      if (storedHost) {
+        const nextUrl = new URL(window.location.href);
+        if (!nextUrl.searchParams.get("host")) {
+          nextUrl.searchParams.set("host", storedHost);
+          navigate(nextUrl.pathname + nextUrl.search + nextUrl.hash, { replace: true });
+          return;
+        }
+      }
+    }
 
     const handleNavigate = (event: Event) => {
       const target = event.target as HTMLElement | null;
@@ -59,8 +72,8 @@ function AppBridgeScript({ apiKey }: { apiKey: string }) {
       if (!href) return;
 
       const url = new URL(href, window.location.origin);
-      if (host && !url.searchParams.get("host")) {
-        url.searchParams.set("host", host);
+      if (urlHost && !url.searchParams.get("host")) {
+        url.searchParams.set("host", urlHost);
       }
       navigate(url.pathname + url.search + url.hash);
     };
@@ -71,27 +84,34 @@ function AppBridgeScript({ apiKey }: { apiKey: string }) {
     };
   }, [location.search, navigate]);
 
-  return <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" data-api-key={apiKey} />;
+  return (
+    <script
+      src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
+      data-api-key={apiKey}
+      data-host={host ?? undefined}
+      data-force-redirect="true"
+    />
+  );
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
+  const host = new URL(request.url).searchParams.get("host");
 
   // eslint-disable-next-line no-undef
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  return { apiKey: process.env.SHOPIFY_API_KEY || "", host };
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData<typeof loader>();
+  const { apiKey, host } = useLoaderData<typeof loader>();
 
   return (
     <>
-      <AppBridgeScript apiKey={apiKey} />
+      <AppBridgeScript apiKey={apiKey} host={host} />
       <AppProvider i18n={enTranslations} linkComponent={PolarisLink as LinkLikeComponent}>
         <NavMenu>
-          <a href="/app">Home</a>
-          <a href="/app/settings">設定</a>
           <a href="/app/rules">出荷ルール</a>
+          <a href="/app/settings">設定</a>
         </NavMenu>
         <Outlet />
       </AppProvider>
