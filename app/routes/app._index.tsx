@@ -95,7 +95,7 @@ export default function Index() {
           <BlockStack gap="400">
             {isGuideVisible ? (
               <Card>
-                <BlockStack gap="300">
+                <BlockStack gap="500">
                   <div
                     style={{
                       display: "grid",
@@ -126,9 +126,11 @@ export default function Index() {
                         <Text as="p">
                           このガイドに沿ってアプリの初期設定を完了してください。
                         </Text>
-                        <Text as="p" tone="subdued">
-                          {completedSteps} / {totalSteps} ステップ完了
-                        </Text>
+                        <div style={{border: "1px solid #e5e7eb", borderRadius: 6, padding: "0px 8px", width: "fit-content"}}>
+                          <Text as="p" tone="subdued">
+                            {completedSteps} / {totalSteps} ステップ完了
+                          </Text>
+                        </div>
                       </BlockStack>
                     </div>
                     <InlineStack gap="200" blockAlign="center" wrap={false}>
@@ -147,60 +149,50 @@ export default function Index() {
                     </InlineStack>
                   </div>
                   <Collapsible open={isGuideOpen} id="setup-guide">
-                    <div
-                      style={{
-                        borderRadius: 12,
-                        border: "1px solid #e5e7eb",
-                        background: "#ffffff",
-                      }}
-                    >
-                      {steps.map((step, index) => {
-                        const isOpen = openStepId === step.id;
-                        const isDone = step.done;
-                        return (
-                          <div key={step.id}>
-                            <div
-                              role="button"
-                              tabIndex={0}
-                              aria-expanded={isOpen}
-                              onClick={() => {
+                    {steps.map((step) => {
+                      const isOpen = openStepId === step.id;
+                      const isDone = step.done;
+                      return (
+                        <div key={step.id}
+                          style={{
+                            borderRadius: 12,
+                            background: isOpen ? "#f5f6f7" : "#ffffff",
+                          }}
+                        >
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            aria-expanded={isOpen}
+                            onClick={() => {
+                              if (openStepId !== step.id) {
+                                setOpenStepId(step.id);
+                              }
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
                                 if (openStepId !== step.id) {
                                   setOpenStepId(step.id);
                                 }
-                              }}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  if (openStepId !== step.id) {
-                                    setOpenStepId(step.id);
-                                  }
-                                }
-                              }}
-                              style={{
-                                padding: "12px",
-                                display: "grid",
-                                gridTemplateColumns: "1fr",
-                                alignItems: "center",
-                                gap: "12px",
-                                cursor: "pointer",
-                              }}
-                            >
-                              <InlineStack gap="200" blockAlign="center">
-                                <AsyncCheckButton label={step.title} checked={isDone} />
-                                <Text as="span" variant="bodyMd">
+                              }
+                            }}
+                            style={{
+                              padding: "12px",
+                              display: "grid",
+                              gridTemplateColumns: "1fr",
+                              alignItems: "center",
+                              gap: "12px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <InlineStack gap="300">
+                              <AsyncCheckButton label={step.title} checked={isDone} />
+                              <BlockStack gap="100">
+                                <Text as="span" variant="headingSm">
                                   {step.title}
                                 </Text>
-                              </InlineStack>
-                            </div>
-                            <Collapsible open={isOpen} id={`setup-step-${step.id}`}>
-                              <div style={{padding: "0 12px 12px"}}>
-                                <div
-                                  style={{
-                                    padding: "12px",
-                                    borderRadius: 12,
-                                    background: "#f5f6f7",
-                                  }}
-                                >
+
+                                <Collapsible open={isOpen} id={`setup-step-${step.id}`}>
                                   <BlockStack gap="200">
                                     <Text as="p">{step.detail}</Text>
                                     <InlineStack gap="200" wrap>
@@ -209,14 +201,13 @@ export default function Index() {
                                       </Button>
                                     </InlineStack>
                                   </BlockStack>
-                                </div>
-                              </div>
-                            </Collapsible>
-                            {index < steps.length - 1 ? <Divider /> : null}
+                                </Collapsible>
+                              </BlockStack>
+                            </InlineStack>
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </Collapsible>
                 </BlockStack>
               </Card>
