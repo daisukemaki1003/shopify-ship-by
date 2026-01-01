@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { calculateShipBy, toISODate } from "./server/ship-by.server.js";
+import {
+  adjustForHolidays,
+  calculateShipBy,
+  detectShippingRate,
+  parseDeliveryDate,
+  pickAdoptedRule,
+  toISODate,
+} from "../server/ship-by.server.js";
 
 const baseSetting = {
   deliverySource: "metafield" as const,
@@ -64,6 +71,140 @@ test("配送ケース優先順位で商品×ShippingRateの最大daysを採用�
   assert.equal(result.value.adoptDays, 3);
   assert.deepEqual(result.value.matchedRuleIds, ["product-with-rate"]);
   assert.equal(toISODate(result.value.shipBy), "2025-05-07");
+});
+
+test("お届け希望日の取得設定が未入力ならmissing_settingエラーになる", () => {
+  const result = parseDeliveryDate(
+    { attributes: [] },
+    { deliverySource: null, deliveryKey: null },
+  );
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error, "missing_setting");
+});
+
+test("お届け希望日が見つからない場合はdelivery_value_not_foundエラーになる", () => {
+  const result = parseDeliveryDate(
+    { attributes: [] },
+    {
+      deliverySource: "attributes",
+      deliveryKey: "requested_date",
+      deliveryFormat: "YYYY-MM-DD",
+    },
+  );
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error, "delivery_value_not_found");
+});
+
+test("不正な日付ならinvalid_delivery_formatエラーになる", () => {
+  const result = parseDeliveryDate(
+    {
+      metafields: [
+        { namespace: "shipping", key: "requested_date", value: "2025-02-30" },
+      ],
+    },
+    {
+      deliverySource: "metafield",
+      deliveryKey: "shipping.requested_date",
+      deliveryFormat: "YYYY-MM-DD",
+    },
+  );
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error, "invalid_delivery_format");
+});
+
+test("属性の数値でもお届け希望日をパースできる", () => {
+  const result = parseDeliveryDate(
+    {
+      attributes: [{ name: "requested_date", value: 20251224 }],
+    },
+    {
+      deliverySource: "attributes",
+      deliveryKey: "requested_date",
+      deliveryFormat: "YYYYMMDD",
+    },
+  );
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(toISODate(result.value), "2025-12-24");
+});
+
+test("配送ケースが未設定ならshipping_rate_not_configuredエラーになる", () => {
+  const result = detectShippingRate(
+    { shipping_lines: [{ code: "yamato_cool" }] },
+    { shippingRates: [] },
+  );
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error, "shipping_rate_not_configured");
+});
+
+test("配送ケースが一致しない場合はshipping_rate_not_foundエラーになる", () => {
+  const result = detectShippingRate(
+    { shipping_lines: [{ code: "yamato_cool" }] },
+    {
+      shippingRates: [
+        { shippingRateId: "sr_other", handle: "sagawa", title: "Sagawa" },
+      ],
+    },
+  );
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error, "shipping_rate_not_found");
+});
+
+test("最大日数が同じルールはmatchedRuleIdsに全件含まれる", () => {
+  const result = pickAdoptedRule({
+    shippingRateId: "sr_yamato_cool",
+    productIds: ["111"],
+    rules: [
+      {
+        id: "candidate-a",
+        targetType: "product",
+        targetId: "111",
+        shippingRateIds: ["sr_yamato_cool"],
+        days: 3,
+      },
+      {
+        id: "candidate-b",
+        targetType: "product",
+        targetId: "111",
+        shippingRateIds: ["sr_yamato_cool"],
+        days: 3,
+      },
+      {
+        id: "lower",
+        targetType: "all",
+        targetId: null,
+        shippingRateIds: [],
+        days: 1,
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.days, 3);
+  assert.deepEqual(result.value.ruleIds, ["candidate-a", "candidate-b"]);
+});
+
+test("休業日が全曜日ならholiday_never_resolvesエラーになる", () => {
+  const result = adjustForHolidays(new Date(Date.UTC(2025, 0, 1)), {
+    holidays: [],
+    weeklyHolidays: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"],
+  });
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error, "holiday_never_resolves");
 });
 
 test("週次と単発の休業日を考慮して前営業日に繰り下げる", () => {

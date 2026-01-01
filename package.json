@@ -19,7 +19,7 @@
     "graphql-codegen": "graphql-codegen",
     "vite": "vite",
     "typecheck": "SKIP_TYPEGEN=1 react-router typegen && tsc --noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test .tmp-tests/features/**/*.test.js",
+    "test": "tsc -p tsconfig.test.json && find .tmp-tests/features -path '*/__tests__/*' -name '*.test.js' -print0 | xargs -0 node --test",
     "test:clean": "rm -rf .tmp-tests"
   },
   "type": "module",

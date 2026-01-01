@@ -7,5 +7,5 @@
     "module": "ESNext",
     "moduleResolution": "Bundler"
   },
-  "include": ["app/features/**/*.test.ts"]
+  "include": ["app/features/**/__tests__/**/*.test.ts"]
 }

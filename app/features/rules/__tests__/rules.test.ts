@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeZoneRulePayload } from "./utils/normalize-zone-rule.js";
+import { normalizeZoneRulePayload } from "../utils/normalize-zone-rule.js";
 
 const basePayload = {
   zoneKey: "tokyo",
@@ -9,7 +9,7 @@ const basePayload = {
   productRules: [],
 };
 
-test("normalizeZoneRulePayload: zoneKey mismatch returns error", () => {
+test("normalizeZoneRulePayload: zoneKey不一致でエラーになる", () => {
   const result = normalizeZoneRulePayload(
     { ...basePayload, zoneKey: "osaka" },
     "tokyo",
@@ -20,7 +20,7 @@ test("normalizeZoneRulePayload: zoneKey mismatch returns error", () => {
   assert.equal(result.message, "配送エリアが一致しません");
 });
 
-test("normalizeZoneRulePayload: empty base days allowed", () => {
+test("normalizeZoneRulePayload: 基本設定が未入力でも成功する", () => {
   const result = normalizeZoneRulePayload(
     {
       ...basePayload,
@@ -35,7 +35,7 @@ test("normalizeZoneRulePayload: empty base days allowed", () => {
   assert.equal(result.productRules[0]?.days, 2);
 });
 
-test("normalizeZoneRulePayload: invalid base and product rule returns combined errors", () => {
+test("normalizeZoneRulePayload: 基本設定と商品別設定のエラーを結合して返す", () => {
   const result = normalizeZoneRulePayload(
     {
       ...basePayload,
