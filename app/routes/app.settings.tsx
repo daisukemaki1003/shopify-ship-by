@@ -567,7 +567,7 @@ export default function SettingsPage() {
                           selected={candidateId ? [candidateId] : []}
                           textField={
                             <Autocomplete.TextField
-                              label="注文メタフィールド候補"
+                              label=""
                               value={candidateQuery}
                               onChange={handleCandidateQueryChange}
                               placeholder="shipping.requested_date"
@@ -614,7 +614,7 @@ export default function SettingsPage() {
                     <Box paddingInlineStart="400">
                       <BlockStack gap="200">
                         <TextField
-                          label="注文属性キー"
+                          label=""
                           autoComplete="off"
                           value={attributeKey}
                           onChange={handleAttributeKeyChange}
@@ -628,8 +628,11 @@ export default function SettingsPage() {
                   ) : null}
                 </BlockStack>
               </BlockStack>
+
+              <div></div>
+
               <Select
-                label="日付フォーマットのテンプレート"
+                label="日付フォーマット"
                 options={[
                   ...FORMAT_PRESETS.map((preset) => ({
                     label: preset.label,

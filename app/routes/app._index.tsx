@@ -46,34 +46,29 @@ export default function Index() {
   const isDeliveryReady =
     (deliverySource === "metafield" || deliverySource === "attributes") &&
     Boolean(deliveryKey?.trim());
+  const isSettingsReady = isLeadDaysReady && isDeliveryReady;
   const steps = [
     {
-      id: "lead-days",
-      title: "出荷までの日数を設定",
-      description: "設定で基準となる日数を入力します。",
-      detail:
-        "配送エリアにルールがない場合に使われる日数です。まずは全体の基準値を決めます。",
-      actionLabel: "設定へ",
+      id: "settings",
+      title: "1. 設定を完了（出荷日数と取得元）",
+      description: "出荷までの日数と、お届け希望日の取得元をここで決めます。",
+      detail: [
+        "出荷までの日数、取得元（メタフィールド/属性）、キー、日付の形式を入力します。",
+        "ここが未設定だと出荷日を計算できません。",
+      ],
+      actionLabel: "設定へ進む",
       url: "/app/settings",
-      done: isLeadDaysReady,
-    },
-    {
-      id: "delivery-source",
-      title: "お届け希望日の取得方法を設定",
-      description: "メタフィールドまたは属性のキーを指定します。",
-      detail:
-        "注文データからお届け希望日を取得するためのキーとフォーマットを指定します。",
-      actionLabel: "取得方法を設定",
-      url: "/app/settings",
-      done: isDeliveryReady,
+      done: isSettingsReady,
     },
     {
       id: "rules",
-      title: "配送エリアのルールを作成",
-      description: "配送方法ごとの出荷日数を登録します。",
-      detail:
-        "配送エリアごとに出荷日数を登録して、より正確な出荷日を計算します。",
-      actionLabel: "ルールを作成",
+      title: "2. 出荷ルールを作成（配送エリア別）",
+      description: "配送エリア・配送方法ごとに出荷までの日数を登録します。",
+      detail: [
+        "エリア別に日数を設定すると、出荷期限をより正確に計算できます。",
+        "未設定のエリアは設定の出荷日数を使います。",
+      ],
+      actionLabel: "ルールへ進む",
       url: "/app/rules",
       done: hasRules,
     },
@@ -193,7 +188,13 @@ export default function Index() {
 
                                 <Collapsible open={isOpen} id={`setup-step-${step.id}`}>
                                   <BlockStack gap="200">
-                                    <Text as="p">{step.detail}</Text>
+                                    <div>
+                                      {step.detail.map((line, index) => (
+                                        <Text as="p" key={`${step.id}-detail-${index}`}>
+                                          {line}
+                                        </Text>
+                                      ))}
+                                    </div>
                                     <InlineStack gap="200" wrap>
                                       <Button url={step.url} variant="primary">
                                         {step.actionLabel}
