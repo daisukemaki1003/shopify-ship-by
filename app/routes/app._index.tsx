@@ -49,7 +49,7 @@ export default function Index() {
   const steps = [
     {
       id: "lead-days",
-      title: "出荷リードタイムを設定",
+      title: "出荷までの日数を設定",
       description: "設定で基準となる日数を入力します。",
       detail:
         "配送エリアにルールがない場合に使われる日数です。まずは全体の基準値を決めます。",

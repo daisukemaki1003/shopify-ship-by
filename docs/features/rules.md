@@ -1,7 +1,7 @@
 # 出荷ルール
 
 ## 目的
-配送エリア（Shipping Zone）ごとに、出荷リードタイム（日数）を設定する。
+配送エリア（Shipping Zone）ごとに、出荷日数を設定する。
 
 ## データ構成
 - `Rule` : 出荷日数の定義（`targetType=all|product`）
@@ -33,4 +33,3 @@
 ## UI 仕様
 - 追加時の初期日数は `DEFAULT_PRODUCT_DAYS = 1`。
 - 商品選択は Shopify Resource Picker を使用。
-

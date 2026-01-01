@@ -118,7 +118,7 @@ test("不正な日付ならinvalid_delivery_formatエラーになる", () => {
   assert.equal(result.error, "invalid_delivery_format");
 });
 
-test("属性の数値でもお届け希望日をパースできる", () => {
+test("属性の数値でもお届け希望日を読み取れる", () => {
   const result = parseDeliveryDate(
     {
       attributes: [{ name: "requested_date", value: 20251224 }],

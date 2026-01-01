@@ -47,7 +47,7 @@ test("normalizeZoneRulePayload: 基本設定と商品別設定のエラーを結
 
   assert.equal(result.ok, false);
   if (result.ok) return;
-  assert.match(result.message, /基本設定の出荷リードタイムは1以上の整数/);
+  assert.match(result.message, /基本設定の出荷日数は1以上の整数/);
   assert.match(result.message, /商品別設定1: 商品を選択してください/);
-  assert.match(result.message, /商品別設定1: 出荷リードタイムは1以上の整数/);
+  assert.match(result.message, /商品別設定1: 出荷日数は1以上の整数/);
 });

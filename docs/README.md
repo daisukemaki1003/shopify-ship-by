@@ -4,7 +4,7 @@
 
 ## 目次
 - `docs/data-model.md` : データモデル（Prisma/SQLite）
-- `docs/features/settings.md` : 設定（配送リードタイム・お届け希望日取得・保存先）
+- `docs/features/settings.md` : 設定（出荷日数・お届け希望日取得・保存先）
 - `docs/features/rules.md` : 出荷ルールのドメイン仕様と保存ロジック
 - `docs/ui/rules-index.md` : 出荷ルール一覧 UI
 - `docs/ui/rules-detail.md` : 出荷ルール詳細 UI

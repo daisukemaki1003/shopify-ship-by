@@ -218,7 +218,7 @@ export const action = async ({request}: ActionFunctionArgs) => {
 
   const fieldErrors: NonNullable<Exclude<ActionData, {ok: true}>>["fieldErrors"] = {};
   if (!parsedDays) {
-    fieldErrors.defaultLeadDays = "設定の出荷リードタイムは1以上の整数で入力してください";
+    fieldErrors.defaultLeadDays = "設定の出荷日数は1以上の整数で入力してください";
   }
   const isValidSource = rawSource === "metafield" || rawSource === "attributes";
   if (!isValidSource) {
@@ -510,17 +510,17 @@ export default function SettingsPage() {
       >
         <BlockStack gap="400">
           <Text as="p" tone="subdued">
-            配送エリアにルールがない場合に使用される基準日数を設定します。
+            配送エリアにルールがない場合に使う基準日数を設定します。
           </Text>
           <SuccessToast message={successMessage} nonce={location.key} />
           <CriticalBanner message={errorMessage} />
           <Card>
             <BlockStack gap="200">
               <Text as="h2" variant="headingMd">
-                出荷リードタイム（必須）
+                出荷までの日数（必須）
               </Text>
               <TextField
-                label="出荷リードタイム（日）"
+                label="出荷までの日数"
                 name="defaultLeadDays"
                 type="number"
                 min={1}
@@ -529,7 +529,7 @@ export default function SettingsPage() {
                 value={leadDays}
                 onChange={setLeadDays}
                 suffix="日"
-                helpText="配送エリアにルールが設定されていない場合、この日数が適用されます。"
+                helpText="配送エリアのルールが未設定なら、この日数で計算します。"
                 error={fieldErrors?.defaultLeadDays}
               />
             </BlockStack>
@@ -538,10 +538,10 @@ export default function SettingsPage() {
           <Card>
             <BlockStack gap="300">
               <Text as="h2" variant="headingMd">
-                お届け希望日の取得設定（必須）
+                お届け希望日の取得元（必須）
               </Text>
               <Text as="p" tone="subdued">
-                取得元を選び、キーと日付フォーマットを設定します。
+                取得元とキー、日付の形式を指定します。
               </Text>
               {fieldErrors?.deliverySource || fieldErrors?.deliveryKey ? (
                 <Text as="p" tone="critical">
@@ -567,7 +567,7 @@ export default function SettingsPage() {
                           selected={candidateId ? [candidateId] : []}
                           textField={
                             <Autocomplete.TextField
-                              label="メタフィールド候補"
+                              label="注文メタフィールド候補"
                               value={candidateQuery}
                               onChange={handleCandidateQueryChange}
                               placeholder="shipping.requested_date"
@@ -579,13 +579,13 @@ export default function SettingsPage() {
                           onSelect={handleCandidateSelect}
                           emptyState={
                             <Text as="p" tone="subdued">
-                              候補が見つかりませんでした。メタフィールド定義を追加してください。
+                              候補がありません。注文メタフィールド定義を追加してください。
                             </Text>
                           }
                         />
                         {missingMetafieldCandidate ? (
                           <Text as="p" tone="critical">
-                            現在の設定「{missingMetafieldCandidate.key}」はメタフィールド定義に見つかりません。
+                            現在の設定「{missingMetafieldCandidate.key}」は注文メタフィールド定義にありません。
                           </Text>
                         ) : null}
                         {fieldErrors?.deliveryKey ? (
@@ -594,7 +594,7 @@ export default function SettingsPage() {
                           </Text>
                         ) : null}
                         <Text as="p" tone="subdued">
-                          メタフィールド定義から候補を表示しています。
+                          注文メタフィールド定義から候補を表示しています。
                         </Text>
                       </BlockStack>
                     </Box>
@@ -619,7 +619,7 @@ export default function SettingsPage() {
                           value={attributeKey}
                           onChange={handleAttributeKeyChange}
                           placeholder="requested_date"
-                          helpText="注文属性（attributes）に保存されたキー名を入力してください。"
+                          helpText="注文属性（attributes）に保存されているキー名を入力してください。"
                           error={fieldErrors?.deliveryKey}
                           requiredIndicator
                         />
@@ -629,7 +629,7 @@ export default function SettingsPage() {
                 </BlockStack>
               </BlockStack>
               <Select
-                label="フォーマットテンプレート"
+                label="日付フォーマットのテンプレート"
                 options={[
                   ...FORMAT_PRESETS.map((preset) => ({
                     label: preset.label,
@@ -643,12 +643,12 @@ export default function SettingsPage() {
               />
               {formatPresetSelection === FORMAT_PRESET_CUSTOM ? (
                 <TextField
-                  label="日付パースフォーマット"
+                  label="日付の読み取りフォーマット"
                   autoComplete="off"
                   value={format}
                   onChange={setFormat}
                   placeholder={DEFAULT_DATE_FORMAT}
-                  helpText="テンプレートを選ぶと自動入力されます。必要なら編集できます。"
+                  helpText="テンプレートを選ぶと自動入力されます。必要なら変更してください。"
                 />
               ) : null}
               <TextField
@@ -657,12 +657,12 @@ export default function SettingsPage() {
                 value={formatSample}
                 onChange={setFormatSample}
                 placeholder="2025/12/24 (水)"
-                helpText="入力すると解析結果を表示します。"
+                helpText="入力すると読み取り結果を表示します。"
               />
               {formatPreview ? (
                 <Text as="p" tone={formatPreview.ok ? "success" : "critical"}>
                   {formatPreview.ok
-                    ? `解析結果: ${formatPreview.value}${formatPreview.hint ?? ""}`
+                    ? `読み取り結果: ${formatPreview.value}${formatPreview.hint ?? ""}`
                     : formatPreview.message}
                 </Text>
               ) : null}
@@ -674,7 +674,7 @@ export default function SettingsPage() {
           <Card>
             <BlockStack gap="200">
               <Text as="h2" variant="headingMd">
-                保存先設定
+                保存先
               </Text>
               <Checkbox
                 label="タグへ保存"
@@ -683,13 +683,13 @@ export default function SettingsPage() {
                 onChange={setIsSaveTag}
               />
               <TextField
-                label="タグの保存フォーマット"
+                label="タグの書式"
                 name="saveTagFormat"
                 autoComplete="off"
                 value={tagFormat}
                 onChange={setTagFormat}
                 placeholder="ship-by-{YYYY}-{MM}-{DD}"
-                helpText="未入力の場合はデフォルトのフォーマットを使用します。"
+                helpText="未入力なら既定の書式を使います。"
                 disabled={!isSaveTag}
               />
               {!isSaveTag ? (

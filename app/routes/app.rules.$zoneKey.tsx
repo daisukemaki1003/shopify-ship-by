@@ -331,7 +331,7 @@ export default function RuleDetailPage() {
                 設定: {defaultLeadDays != null ? `${defaultLeadDays}日` : "未設定"}（未入力の場合に適用）
               </Text>
               <TextField
-                label="出荷リードタイム（日）"
+                label="出荷までの日数"
                 autoComplete="off"
                 type="number"
                 min={1}
@@ -373,7 +373,7 @@ export default function RuleDetailPage() {
                         </div>
 
                         <TextField
-                          label="出荷リードタイム（日）"
+                          label="出荷までの日数"
                           autoComplete="off"
                           type="number"
                           min={1}

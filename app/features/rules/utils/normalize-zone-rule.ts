@@ -23,7 +23,7 @@ export const normalizeZoneRulePayload = (
   if (rawBaseDays !== "") {
     parsedBaseDays = parsePositiveInt(rawBaseDays);
     if (!parsedBaseDays) {
-      errors.push("基本設定の出荷リードタイムは1以上の整数で入力してください");
+      errors.push("基本設定の出荷日数は1以上の整数で入力してください");
     }
   }
 
@@ -34,7 +34,7 @@ export const normalizeZoneRulePayload = (
       errors.push(`商品別設定${idx + 1}: 商品を選択してください`);
     }
     if (!parsedDays) {
-      errors.push(`商品別設定${idx + 1}: 出荷リードタイムは1以上の整数で入力してください`);
+      errors.push(`商品別設定${idx + 1}: 出荷日数は1以上の整数で入力してください`);
     }
     return {...rule, days: parsedDays ?? 1};
   });
